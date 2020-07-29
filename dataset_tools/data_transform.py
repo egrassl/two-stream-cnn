@@ -2,6 +2,7 @@ import os
 import cv2
 import glob
 import numpy as np
+import utils.file_management as fm
 
 TVL1 = cv2.DualTVL1OpticalFlow_create()
 
@@ -17,14 +18,6 @@ def calculate_flow(frame1, frame2, bound=15):
     flow[flow >= 255] = 255
     flow[flow <= 0] = 0
     return flow
-
-
-def create_dir(path):
-    if not os.path.exists(path):
-        os.mkdir(path)
-        return True
-    else:
-        return False
 
 
 def extract_motion_from_frames(frames, init_frame, end_frame, nb_frames):
@@ -51,10 +44,10 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
     path_spatial = os.path.join(extract_path, 'spatial')
     path_temporal = os.path.join(extract_path, 'temporal')
 
-    if create_dir(path_spatial) and verbose:
+    if fm.create_dir(path_spatial) and verbose:
         print('Directory %s created' % path_spatial)
 
-    if not create_dir(path_temporal) and verbose:
+    if not fm.create_dir(path_temporal) and verbose:
         print('Directory %s created' % path_temporal)
 
     if verbose:
@@ -72,10 +65,10 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
             print('\nClass %s\n==================\n' % class_name)
 
         # Verifies if it is needed to create classes' folders
-        if create_dir(os.path.join(path_spatial, class_name)) and verbose:
+        if fm.create_dir(os.path.join(path_spatial, class_name)) and verbose:
             print('Directory created: %s' % os.path.join(path_spatial, class_name))
 
-        if create_dir(os.path.join(path_temporal, class_name)) and verbose:
+        if fm.create_dir(os.path.join(path_temporal, class_name)) and verbose:
             print('Directory created: %s' % os.path.join(path_temporal, class_name))
 
         # Load all frames
@@ -102,6 +95,7 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
             count = 0
             for i in indexes:
 
+                # Gets video file count and relative path
                 suffix = str(count).zfill(3)
                 split_path = v_path.split('/')
                 video_rpath = os.path.join(split_path[-2], split_path[-1])
@@ -126,10 +120,3 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
                 count += 1
 
     print('\nSamples extraction was finished with success!!')
-
-
-extract_from_dataset(path='/Users/ericdebaeregrassl/Documents/mestrado/datasets/test',
-                     extract_path='/Users/ericdebaeregrassl/Documents/mestrado/datasets/hmdb-test',
-                     nb_frames=10,
-                     chunks=5,
-                     verbose=True)

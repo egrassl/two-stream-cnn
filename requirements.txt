@@ -1,5 +1,5 @@
 keras-gpu
-keras-video-generators
 matplotlib
 opencv
 numpy~=1.18.5
+pillow

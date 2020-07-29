@@ -1,85 +1,72 @@
 import os
 import keras
+import utils.file_management as fm
 
 
-class TsCnnVgg16(object):
+def add_fully_connected(model, n_classes):
+    # Adds
+    model.add(keras.layers.GlobalAveragePooling2D())
 
-    # Adds the fully connected network in a model
-    @staticmethod
-    def add_fully_connected(model, n_classes):
-        # Dense layer 1
-        model.add(keras.layers.Flatten())
-        #model.add(keras.layers.Dense(4096, activation='relu', kernel_initializer='he_uniform'))
-        #model.add(keras.layers.Dropout(0.85))
-
-        # Dense layer 2
-        #model.add(keras.layers.Dense(4096, activation='relu', kernel_initializer='he_uniform'))
-        #model.add(keras.layers.Dropout(0.85))
-
-        # Dense layer 3 + softmax layer
-        model.add(keras.layers.Dense(n_classes, activation='softmax'))
-
-    @staticmethod
-    def get_stream_cnn(n_classes, n_frames, weights='imagenet', input_shape=(224, 224, 3)):
-        # Calculates shape over distributed time of n_frames frames
-        shape = (n_frames,) + input_shape
-
-        # Model used for CNN is VGG16 with a time distributed layer to process all input frames
-        vgg16 = keras.applications.Xception(include_top=False, input_shape=input_shape, weights=weights)
-        vgg_pool = keras.Sequential([vgg16, keras.layers.GlobalAveragePooling2D()])
-        model = keras.Sequential(keras.layers.TimeDistributed(vgg_pool, input_shape=shape))
-
-        # model.summary()
-
-        # Adds classification network
-        TsCnnVgg16.add_fully_connected(model, n_classes)
-        return model
-
-    @staticmethod
-    def get_optmizer():
-        return keras.optimizers.SGD(learning_rate=0.000008, momentum=0.9)
-
-    @staticmethod
-    def train_spatial_stream(model_name, model, train, validation, history_file, initial_epoch, weights_file,
-                             epochs, continue_training):
-
-        # Check for historical files and weights from previous trainings if continue is necessary
-        #current_path = os.getcwd()
+    # Dense layer + softmax layer
+    model.add(keras.layers.Dense(n_classes, activation='softmax'))
 
 
-        # Check if the log file exists
-        if continue_training and not os.path.isfile(history_file):
-            raise Exception('Could not find the history file:' + history_file)
+def xception_spatial(n_classes, weights):
+    model = keras.Sequential()
 
-        if weights_file is not None:
+    # Creates Xception model for image classification
+    model.add(keras.applications.Xception(input_shape=(299, 299, 3), weights=weights, include_top=False))
 
-            # check if weight file exists
-            if os.path.isfile(weights_file):
-                model.load_weights(weights_file)
+    # Adds classification network for specified classes
+    add_fully_connected(model, n_classes)
+    return model
 
-            # Checks if weight file exists
-            else:
-                raise Exception('Could not find the weight file:' + weights_file)
 
-        # Create callbacks
-        callbacks = [
-            keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=15, min_lr=0.0000008),
-            keras.callbacks.ModelCheckpoint(
-                'chkp/' + model_name + '.{epoch:03d}.hdf5',
-                save_weights_only=True,
-                save_best_only=True,
-                verbose=1),
-            keras.callbacks.CSVLogger(filename=history_file, separator=',', append=continue_training)
-        ]
+def xception_temporal(n_classes, nb_frames):
+    model = keras.Sequential()
 
-        # Train generator
-        history = model.fit_generator(
-            train,
-            validation_data=validation,
-            verbose=1,
-            epochs=epochs,
-            initial_epoch=initial_epoch-1,
-            callbacks=callbacks
-         )
+    # Creates Xception model for image classification
+    model.add(keras.applications.Xception(input_shape=(299, 299, 2 * nb_frames), weights=None, include_top=False))
 
-        return history
+    # Adds classification network for specified classes
+    add_fully_connected(model, n_classes)
+    return model
+
+
+def train_stream(name, model, train, validation, initial_epoch, weights_path, epochs, new=False):
+
+    # Create chkp dir if needed
+    if fm.create_dir('chkp'):
+        print('Directory created: %s' % os.path.join(os.getcwd(), 'chkp'))
+
+    # Checks if it can load weights
+    if weights_path is not None:
+
+        if os.path.isfile(weights_path):
+            model.load_weights(weights_path)
+
+        else:
+            raise Exception('Weights file path does not exists: %s' % weights_path)
+
+    # Training parameters
+    callbacks = [
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=0.0000008),
+        keras.callbacks.ModelCheckpoint(
+            'chkp/' + name + '.hdf5',
+            save_weights_only=True,
+            save_best_only=True,
+            verbose=1),
+        keras.callbacks.CSVLogger(filename='chkp/%s.hist' % name, separator=',', append=not new)
+    ]
+
+    # Train generator
+    history = model.fit_generator(
+        train,
+        validation_data=validation,
+        verbose=1,
+        epochs=epochs,
+        initial_epoch=initial_epoch - 1,
+        callbacks=callbacks
+     )
+
+    return history

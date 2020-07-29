@@ -8,7 +8,7 @@ keras.backend.floatx()
 
 
 # Custom video frame dataset loader from metal3d
-from keras_video import VideoFrameGenerator
+
 
 
 # Using subdirectories path as classes
