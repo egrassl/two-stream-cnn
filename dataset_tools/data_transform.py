@@ -43,12 +43,20 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
     # Checks if directories exist and create them
     path_spatial = os.path.join(extract_path, 'spatial')
     path_temporal = os.path.join(extract_path, 'temporal')
+    path_t_horizontal = os.path.join(path_temporal, 'u')
+    path_t_vertical = os.path.join(path_temporal, 'v')
 
-    if fm.create_dir(path_spatial) and verbose:
+    if spatial and fm.create_dir(path_spatial) and verbose:
         print('Directory %s created' % path_spatial)
 
-    if not fm.create_dir(path_temporal) and verbose:
+    if temporal and fm.create_dir(path_temporal) and verbose:
         print('Directory %s created' % path_temporal)
+
+    if temporal and fm.create_dir(path_t_horizontal):
+        print('Directory %s created' % path_t_horizontal)
+
+    if temporal and fm.create_dir(path_t_vertical):
+        print('Directory %s created' % path_t_vertical)
 
     if verbose:
         print('%d classes detected' % len(classes))
@@ -65,11 +73,14 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
             print('\nClass %s\n==================\n' % class_name)
 
         # Verifies if it is needed to create classes' folders
-        if fm.create_dir(os.path.join(path_spatial, class_name)) and verbose:
+        if spatial and fm.create_dir(os.path.join(path_spatial, class_name)) and verbose:
             print('Directory created: %s' % os.path.join(path_spatial, class_name))
 
-        if fm.create_dir(os.path.join(path_temporal, class_name)) and verbose:
-            print('Directory created: %s' % os.path.join(path_temporal, class_name))
+        if temporal and fm.create_dir(os.path.join(path_t_horizontal, class_name)) and verbose:
+            print('Directory created: %s' % os.path.join(path_t_horizontal, class_name))
+
+        if temporal and fm.create_dir(os.path.join(path_t_vertical, class_name)) and verbose:
+            print('Directory created: %s' % os.path.join(path_t_vertical, class_name))
 
         # Load all frames
         for v_path in videos:
@@ -110,12 +121,24 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
 
                 # Gets optical flow frames
                 if temporal:
-                    file_name = video_rpath[:-4] + '_%s.npy' % suffix
-                    name = os.path.join(path_temporal, file_name)
-                    stacked_frames = extract_motion_from_frames(frames, i-nb_range, i+nb_range, nb_frames)
-                    np.save(name, stacked_frames)
-                    if verbose:
-                        print('File created: %s' % name)
+
+                    # Get stacked frames
+                    stacked_frames = extract_motion_from_frames(frames, i - nb_range, i + nb_range, nb_frames)
+                    # Saves horizontal
+                    for j in range (0, nb_frames):
+                        video_name = video_rpath[:-4] + '_%s_%s.jpg' % (suffix, str(j).zfill(2))
+
+                        # Saves horizontal flow
+                        cv2.imwrite(os.path.join(path_t_horizontal, video_name), stacked_frames[:, :, j])
+
+                        if verbose:
+                            print('File created: %s' % os.path.join(path_t_horizontal, video_name))
+
+                        # Saves vertical flow
+                        cv2.imwrite(os.path.join(path_t_vertical, video_name), stacked_frames[:, :, j + nb_frames])
+
+                        if verbose:
+                            print('File created: %s' % os.path.join(path_t_vertical, video_name))
 
                 count += 1
 

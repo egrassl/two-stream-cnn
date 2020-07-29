@@ -50,7 +50,7 @@ def train_stream(name, model, train, validation, initial_epoch, weights_path, ep
 
     # Training parameters
     callbacks = [
-        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=0.0000008),
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=0.00000008),
         keras.callbacks.ModelCheckpoint(
             'chkp/' + name + '.hdf5',
             save_weights_only=True,

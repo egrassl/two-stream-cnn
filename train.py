@@ -42,8 +42,8 @@ classes.sort()
 import ts_cnn.models as ts
 import keras
 
-OPTIMIZER = keras.optimizers.SGD(learning_rate=0.000008, momentum=0.9)
-
+# OPTIMIZER = keras.optimizers.SGD(learning_rate=0.000008, momentum=0.9)
+OPTIMIZER = keras.optimizers.Adam(learning_rate=.0000008)
 
 if args.t == 's':
     model = ts.xception_spatial(len(classes), 'imagenet')
@@ -52,17 +52,21 @@ if args.t == 's':
     train_datagen = keras.preprocessing.image.ImageDataGenerator(
         zoom_range=.1,
         horizontal_flip=True,
-        rotation_range=8,
+        rotation_range=10,
         width_shift_range=.2,
         height_shift_range=.2,
-        validation_split=.33
+        channel_shift_range=.2,
+        validation_split=.33,
+        rescale=1.0/255.0
     )
 
     train_set = train_datagen.flow_from_directory(
         args.dataset,
         target_size=(299, 299),
         batch_size=args.bs,
-        subset='training'
+        subset='training',
+        color_mode='rgb',
+        shuffle=True
     )
 
     validation_set = train_datagen.flow_from_directory(
