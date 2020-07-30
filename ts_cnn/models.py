@@ -34,7 +34,7 @@ def xception_spatial(n_classes, weights):
     # Creates Xception model for image classification
     model.add(keras.applications.Xception(input_shape=(299, 299, 3), weights=weights, include_top=False))
 
-    for layer in model.layers: layer.W_regularizer = keras.regularizers.l2(10e-5)
+    for layer in model.layers: layer.W_regularizer = keras.regularizers.l2(1e-5)
 
     # Adds classification network for specified classes
     add_fully_connected(model, n_classes)
@@ -69,7 +69,7 @@ def train_stream(name, model, train, validation, initial_epoch, weights_path, ep
 
     # Training parameters
     callbacks = [
-        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=.1, patience=10, min_lr=10e-6),
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=.1, patience=10, min_lr=1e-6),
         keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.ModelCheckpoint(
             'chkp/' + name + '.hdf5',

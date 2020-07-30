@@ -45,7 +45,7 @@ import ts_cnn.models as ts
 import keras
 
 # OPTIMIZER = keras.optimizers.SGD(learning_rate=0.000008, momentum=0.9)
-OPTIMIZER = keras.optimizers.SGD(learning_rate=10e-4, momentum=.9)
+OPTIMIZER = keras.optimizers.SGD(learning_rate=1e-4, momentum=.9)
 
 if args.t == 's':
     model = ts.xception_spatial(len(classes), 'imagenet')
