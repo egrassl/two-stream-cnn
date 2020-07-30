@@ -14,6 +14,7 @@ parser.add_argument('-t', metavar='stream_type', type=str, choices=['s', 't', 's
                     help='Chooses which stream will be used: spatial, temporal or both')
 parser.add_argument('--dataset', metavar='dataset_path', type=str, help='Path to videos dataset', required=True)
 parser.add_argument('-e', metavar='epochs', type=int, help='How many epoch to train the network', required=True)
+parser.add_argument('--val', metavar='Motion frames', type=str, help='Number of motion frames per sample', required=True)
 
 
 # Optional arguments
@@ -56,7 +57,6 @@ if args.t == 's':
         width_shift_range=.2,
         height_shift_range=.2,
         channel_shift_range=.2,
-        validation_split=.33,
         rescale=1.0/255.0
     )
 
@@ -69,11 +69,11 @@ if args.t == 's':
         shuffle=True
     )
 
-    validation_set = train_datagen.flow_from_directory(
-        args.dataset,
+    val_datagen = keras.preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
+
+    validation_set = val_datagen.flow_from_directory(
+        args.val,
         target_size=(299, 299),
-        batch_size=args.bs,
-        subset='validation'
     )
 
 

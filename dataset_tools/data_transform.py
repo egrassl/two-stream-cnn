@@ -36,9 +36,12 @@ def extract_motion_from_frames(frames, init_frame, end_frame, nb_frames):
 
 
 def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, temporal=True, verbose=False):
+    nb_range = int(nb_frames / 2)
 
     # Get video classes
     classes = glob.glob(os.path.join(path, '*'))
+    if verbose:
+        print('%d classes detected' % len(classes))
 
     # Checks if directories exist and create them
     path_spatial = os.path.join(extract_path, 'spatial')
@@ -46,41 +49,24 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
     path_t_horizontal = os.path.join(path_temporal, 'u')
     path_t_vertical = os.path.join(path_temporal, 'v')
 
-    if spatial and fm.create_dir(path_spatial) and verbose:
-        print('Directory %s created' % path_spatial)
-
-    if temporal and fm.create_dir(path_temporal) and verbose:
-        print('Directory %s created' % path_temporal)
-
-    if temporal and fm.create_dir(path_t_horizontal):
-        print('Directory %s created' % path_t_horizontal)
-
-    if temporal and fm.create_dir(path_t_vertical):
-        print('Directory %s created' % path_t_vertical)
-
-    if verbose:
-        print('%d classes detected' % len(classes))
+    fm.create_dirs([path_spatial, path_temporal, path_t_horizontal, path_t_vertical], verbose)
 
     # Extract frames for each class
     for c in classes:
 
         # Gets videos inside class folder and extract frames for all videos
         videos = glob.glob(os.path.join(c, '*.avi'))
-        nb_range = int(nb_frames/2)
 
         class_name = c.split('/')[-1]
         if verbose:
             print('\nClass %s\n==================\n' % class_name)
 
         # Verifies if it is needed to create classes' folders
-        if spatial and fm.create_dir(os.path.join(path_spatial, class_name)) and verbose:
-            print('Directory created: %s' % os.path.join(path_spatial, class_name))
-
-        if temporal and fm.create_dir(os.path.join(path_t_horizontal, class_name)) and verbose:
-            print('Directory created: %s' % os.path.join(path_t_horizontal, class_name))
-
-        if temporal and fm.create_dir(os.path.join(path_t_vertical, class_name)) and verbose:
-            print('Directory created: %s' % os.path.join(path_t_vertical, class_name))
+        fm.create_dirs([
+            os.path.join(path_spatial, class_name),
+            os.path.join(path_t_horizontal, class_name),
+            os.path.join(path_t_vertical, class_name)
+        ], verbose)
 
         # Load all frames
         for v_path in videos:
@@ -125,7 +111,7 @@ def extract_from_dataset(path, extract_path, nb_frames, chunks, spatial=True, te
                     # Get stacked frames
                     stacked_frames = extract_motion_from_frames(frames, i - nb_range, i + nb_range, nb_frames)
                     # Saves horizontal
-                    for j in range (0, nb_frames):
+                    for j in range(0, nb_frames):
                         video_name = video_rpath[:-4] + '_%s_%s.jpg' % (suffix, str(j).zfill(2))
 
                         # Saves horizontal flow
