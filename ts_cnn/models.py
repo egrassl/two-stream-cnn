@@ -1,13 +1,30 @@
 import os
 import keras
 import utils.file_management as fm
+import numpy as np
 
+DROPOUT = .85
+
+def l_schedule(epoch, lr):
+    if epoch < 20:
+        return lr
+    else:
+        return lr * 0.1
 
 def add_fully_connected(model, n_classes):
-    # Adds
+
+    # model.add(keras.layers.Dropout(.5))
     model.add(keras.layers.GlobalAveragePooling2D())
 
+    # Add fully Connected Layers
+    model.add(keras.layers.Dropout(DROPOUT))
+    model.add(keras.layers.Dense(4096, activation='relu', kernel_initializer='he_uniform'))
+
+    model.add(keras.layers.Dropout(DROPOUT))
+    model.add(keras.layers.Dense(4096, activation='relu', kernel_initializer='he_uniform'))
+
     # Dense layer + softmax layer
+    model.add(keras.layers.Dropout(DROPOUT))
     model.add(keras.layers.Dense(n_classes, activation='softmax'))
 
 
@@ -16,6 +33,8 @@ def xception_spatial(n_classes, weights):
 
     # Creates Xception model for image classification
     model.add(keras.applications.Xception(input_shape=(299, 299, 3), weights=weights, include_top=False))
+
+    for layer in model.layers: layer.W_regularizer = keras.regularizers.l2(np.power(10.0, -5.0))
 
     # Adds classification network for specified classes
     add_fully_connected(model, n_classes)
@@ -50,7 +69,8 @@ def train_stream(name, model, train, validation, initial_epoch, weights_path, ep
 
     # Training parameters
     callbacks = [
-        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=0.00000008),
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=.1, patience=10, min_lr=np.power(10., -6.)),
+        keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.ModelCheckpoint(
             'chkp/' + name + '.hdf5',
             save_weights_only=True,

@@ -1,6 +1,7 @@
 import argparse
 import os
 import glob
+import numpy as np
 import PIL
 
 # ====== Argument Parser ======
@@ -44,16 +45,16 @@ import ts_cnn.models as ts
 import keras
 
 # OPTIMIZER = keras.optimizers.SGD(learning_rate=0.000008, momentum=0.9)
-OPTIMIZER = keras.optimizers.Adam(learning_rate=.0000008)
+OPTIMIZER = keras.optimizers.SGD(learning_rate=np.power(10., -4.), momentum=.9)
 
 if args.t == 's':
     model = ts.xception_spatial(len(classes), 'imagenet')
 
     # Uses Keras ImageDataGenerator for data augmentation
     train_datagen = keras.preprocessing.image.ImageDataGenerator(
-        zoom_range=.1,
+        zoom_range=.25,
         horizontal_flip=True,
-        rotation_range=10,
+        rotation_range=25,
         width_shift_range=.2,
         height_shift_range=.2,
         channel_shift_range=.2,

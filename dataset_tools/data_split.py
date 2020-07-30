@@ -5,6 +5,12 @@ import shutil
 
 
 def copy_videos_from_path(videos, dst, verbose=False):
+    '''
+    Copy videos from a path to another path
+
+    :param videos: list with videos path
+    :param dst: destiny path
+    '''
     for v in videos:
         path, video_name = os.path.split(v)
         shutil.copyfile(v, os.path.join(dst, video_name))
@@ -14,6 +20,15 @@ def copy_videos_from_path(videos, dst, verbose=False):
 
 
 def split_spatial(src, dest, validation, test, verbose=False):
+    '''
+    Copy videos from spatial folder of dataset
+    :param src:
+    :param dest:
+    :param validation:
+    :param test:
+    :param verbose:
+    :return:
+    '''
 
     # Get original dataset spatial path
     path_spatial = os.path.join(src, 'spatial')
