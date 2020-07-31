@@ -3,7 +3,8 @@ import keras
 import utils.file_management as fm
 import numpy as np
 
-DROPOUT = .85
+DROPOUT = .75
+
 
 def l_schedule(epoch, lr):
     if epoch < 20:
@@ -69,8 +70,8 @@ def train_stream(name, model, train, validation, initial_epoch, weights_path, ep
 
     # Training parameters
     callbacks = [
-        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=.1, patience=10, min_lr=1e-6),
-        keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=10),
+        # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.ModelCheckpoint(
             'chkp/' + name + '.hdf5',
             save_weights_only=True,

@@ -1,8 +1,7 @@
 import argparse
 import os
 import glob
-import numpy as np
-import PIL
+import keras_extensions.preprocess_crop
 
 # ====== Argument Parser ======
 
@@ -44,20 +43,21 @@ classes.sort()
 import ts_cnn.models as ts
 import keras
 
-# OPTIMIZER = keras.optimizers.SGD(learning_rate=0.000008, momentum=0.9)
-OPTIMIZER = keras.optimizers.SGD(learning_rate=1e-4, momentum=.9)
+OPTIMIZER = keras.optimizers.Adam(learning_rate=10e-5)
+# OPTIMIZER = keras.optimizers.SGD(learning_rate=1e-4, momentum=.9)
 
 if args.t == 's':
     model = ts.xception_spatial(len(classes), 'imagenet')
 
     # Uses Keras ImageDataGenerator for data augmentation
     train_datagen = keras.preprocessing.image.ImageDataGenerator(
-        zoom_range=.25,
+        zoom_range=.3,
         horizontal_flip=True,
-        rotation_range=25,
-        width_shift_range=.2,
-        height_shift_range=.2,
-        channel_shift_range=.2,
+        rotation_range=60,
+        #width_shift_range=.25,
+        #height_shift_range=.25,
+        channel_shift_range=.35,
+        brightness_range=[.3, 1.5],
         rescale=1.0/255.0
     )
 
@@ -67,7 +67,9 @@ if args.t == 's':
         batch_size=args.bs,
         subset='training',
         color_mode='rgb',
-        shuffle=True
+        shuffle=True,
+        interpolation='lanczos:random',
+        #save_to_dir='/home/coala/mestrado/test-data'
     )
 
     val_datagen = keras.preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
@@ -86,8 +88,9 @@ model.summary()
 # Trains the model
 model.compile(
     OPTIMIZER,
-    keras.losses.CategoricalCrossentropy(from_logits=False),
+    keras.losses.CategoricalCrossentropy(),
     metrics=['acc']
 )
+
 
 history = ts.train_stream(args.n, model, train_set, validation_set, args.init, None, args.e)
