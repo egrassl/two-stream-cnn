@@ -70,12 +70,17 @@ def train_stream(name, model, train, validation, initial_epoch, weights_path, ep
 
     # Training parameters
     callbacks = [
-        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=10),
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=8),
         # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
+        keras.callbacks.EarlyStopping(patience=15),
         keras.callbacks.ModelCheckpoint(
-            'chkp/' + name + '.hdf5',
+            'chkp/' + name + 'best.hdf5',
             save_weights_only=True,
             save_best_only=True,
+            verbose=1),
+        keras.callbacks.ModelCheckpoint(
+            'chkp/' + name + 'last.hdf5',
+            save_weights_only=True,
             verbose=1),
         keras.callbacks.CSVLogger(filename='chkp/%s.hist' % name, separator=',', append=not new)
     ]
