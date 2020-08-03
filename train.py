@@ -8,11 +8,10 @@ import keras_extensions.preprocess_crop
 parser = argparse.ArgumentParser()
 
 # Obligatory arguments
-parser.add_argument('n', metavar='model_name', type=str, help='Name given to the cnn model. It is used in log files',
-                    required=True)
-parser.add_argument('t', metavar='stream_type', type=str, choices=['s', 't', 'st'], required=True,
+parser.add_argument('n', metavar='model_name', type=str, help='Name given to the cnn model. It is used in log files')
+parser.add_argument('t', metavar='stream_type', type=str, choices=['s', 't', 'st'],
                     help='Chooses which stream will be used: spatial, temporal or both')
-parser.add_argument('dataset', metavar='dataset_path', type=str, help='Path to videos dataset', required=True)
+parser.add_argument('dataset', metavar='dataset_path', type=str, help='Path to videos dataset')
 parser.add_argument('-e', metavar='epochs', type=int, help='How many epoch to train the network', required=True)
 parser.add_argument('--val', metavar='Motion frames', type=str, help='Number of motion frames per sample', required=True)
 
