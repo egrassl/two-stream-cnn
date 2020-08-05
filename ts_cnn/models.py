@@ -108,7 +108,7 @@ class TSCNN(object):
             keras.layers.GlobalAveragePooling2D()
         ])
 
-    def add_layer_regularized(self, layer, n_neurons, activation, model, ):
+    def add_layer_regularized(self, layer, n_neurons, activation, model):
         '''
         Adds a dense layer with L2 if specified
 
@@ -160,6 +160,6 @@ class TSCNN(object):
         # loads weights if it is a file
         if os.path.isfile(self.weights):
             model.load_weights(self.weights)
-            print('Weigths loaded from %s' % self.weights)
+            print('Weights loaded from %s' % self.weights)
 
         return model

@@ -97,7 +97,7 @@ if args.t == 's':
 
     # Validation
     val_datagen = keras.preprocessing.image.ImageDataGenerator(rescale=1.0 / 255.0)
-    val_set = val_datagen.flow_from_directory(args.val, target_size=INPUT_SIZE)
+    val_set = val_datagen.flow_from_directory(args.val, target_size=INPUT_SIZE, color_mode='rgb')
 
 elif args.t == 't':
     raise NotImplemented()
