@@ -129,7 +129,6 @@ class DataExtract(object):
                         print('File created: %s' % file_path)
 
             # Saves temporal frames if they don't exist yet
-
             if self.temporal:
                 index_count = 0
                 for j in range(i - self.nb_range, i + self.nb_range):

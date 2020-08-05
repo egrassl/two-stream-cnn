@@ -1,98 +1,165 @@
 import os
 import keras
 import utils.file_management as fm
-import numpy as np
-
-DROPOUT = .75
+from enum import Enum
 
 
-def l_schedule(epoch, lr):
-    if epoch < 20:
-        return lr
-    else:
-        return lr * 0.1
-
-def add_fully_connected(model, n_classes):
-
-    # model.add(keras.layers.Dropout(.5))
-    model.add(keras.layers.GlobalAveragePooling2D())
-
-    # Add fully Connected Layers
-    model.add(keras.layers.Dropout(DROPOUT))
-    model.add(keras.layers.Dense(4096, activation='relu', kernel_initializer='he_uniform'))
-
-    model.add(keras.layers.Dropout(DROPOUT))
-    model.add(keras.layers.Dense(4096, activation='relu', kernel_initializer='he_uniform'))
-
-    # Dense layer + softmax layer
-    model.add(keras.layers.Dropout(DROPOUT))
-    model.add(keras.layers.Dense(n_classes, activation='softmax'))
+class CNNType(Enum):
+    VGG16 = 1
+    XCEPTION = 2
 
 
-def xception_spatial(n_classes, weights):
-    model = keras.Sequential()
+class TSCNN(object):
 
-    # Creates Xception model for image classification
-    model.add(keras.applications.Xception(input_shape=(299, 299, 3), weights=weights, include_top=False))
+    def __init__(self, cnn_model, stream_type, n_classes, fc_layers, fc_neuros, nb_frames, dropout, l2, callbacks, weights):
+        self.cnn_model = cnn_model
+        self.stream_type = stream_type
+        self.n_classes = n_classes
+        self.fc_layers = fc_layers
+        self.fc_neurons = fc_neuros
+        self.nb_frames = nb_frames
+        self.dropout = dropout
+        self.l2 = l2
+        self.callbacks = callbacks
+        self.weights = weights
 
-    for layer in model.layers: layer.W_regularizer = keras.regularizers.l2(1e-5)
+        self.l2_reg = keras.regularizers.l2(l2)
 
-    # Adds classification network for specified classes
-    add_fully_connected(model, n_classes)
-    return model
+        self.model = self.get_model()
 
+    def add_l2_regularizer(self, model):
+        '''
+        Adds L2 regularizer for each model Layer
 
-def xception_temporal(n_classes, nb_frames):
-    model = keras.Sequential()
+        :param model: model to be regularized
+        :return: new model object with regularization
+        '''
+        # Adds regularizer to all layers
+        for layer in model.layers:
+            for attr in ['kernel_regularizer']:
+                if hasattr(layer, attr):
+                    setattr(layer, attr, self.l2_reg)
 
-    # Creates Xception model for image classification
-    model.add(keras.applications.Xception(input_shape=(299, 299, 2 * nb_frames), weights=None, include_top=False))
+        # Keras bug fix to update the model after regularization
+        # Checks if tmp folder exists
+        fm.create_dir(os.path.join(os.getcwd(), 'tmp'))
+        tmp_weights_path = os.path.join(os.getcwd(), 'tmp', 'tmp_weights.h5')
 
-    # Adds classification network for specified classes
-    add_fully_connected(model, n_classes)
-    return model
+        if os.path.isfile(tmp_weights_path):
+            os.remove(tmp_weights_path)
 
+        # Registers which layer is trainable
+        trainable = [layer.trainable for layer in model.layers]
 
-def train_stream(name, model, train, validation, initial_epoch, weights_path, epochs, new=False):
+        # Freeze layers to avoid bug when loading model back
+        for layer in model.layers:
+            layer.trainable = False
 
-    # Create chkp dir if needed
-    if fm.create_dir('chkp'):
-        print('Directory created: %s' % os.path.join(os.getcwd(), 'chkp'))
+        # Reloads model to make sure that attribute changes take effect
+        model_json = model.to_json()
+        model.save_weights(tmp_weights_path)
 
-    # Checks if it can load weights
-    if weights_path is not None:
+        model = keras.models.model_from_json(model_json)
+        model.load_weights(tmp_weights_path, by_name=True)
 
-        if os.path.isfile(weights_path):
-            model.load_weights(weights_path)
+        # Reloads training status for each reloaded layer
+        for i in range(0, len(model.layers)):
+            model.layers[i].trainable = trainable[i]
 
+        # Remove old weights file
+        os.remove(tmp_weights_path)
+
+        return model
+
+    def get_cnn(self, stream_type):
+        '''
+        Returns the cnn model for the given stream
+
+        :param stream_type: 's' for spatial and 't' for temporal
+        :return: a keras cnn model
+        '''
+
+        if stream_type != 's' and stream_type != 't':
+            raise Exception('Stream type can only be s for spatial and t for temporal')
+
+        cnn_switch = {
+            CNNType.VGG16: (keras.applications.VGG16, (224, 224, 3) if stream_type == 's' else (224, 224, 2 * self.nb_frames)),
+            CNNType.XCEPTION: (keras.applications.Xception, (299, 299, 3) if stream_type == 's' else (299, 299, 2 * self.nb_frames)),
+        }
+
+        # Check if imagenet pre trained model will be used
+        if self.weights == 'imagenet':
+            weights = 'imagenet'
         else:
-            raise Exception('Weights file path does not exists: %s' % weights_path)
+            weights = None
 
-    # Training parameters
-    callbacks = [
-        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=8),
-        # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
-        keras.callbacks.EarlyStopping(patience=15),
-        keras.callbacks.ModelCheckpoint(
-            'chkp/' + name + 'best.hdf5',
-            save_weights_only=True,
-            save_best_only=True,
-            verbose=1),
-        keras.callbacks.ModelCheckpoint(
-            'chkp/' + name + 'last.hdf5',
-            save_weights_only=True,
-            verbose=1),
-        keras.callbacks.CSVLogger(filename='chkp/%s.hist' % name, separator=',', append=not new)
-    ]
+        input_shape = cnn_switch[self.cnn_model][1]
 
-    # Train generator
-    history = model.fit_generator(
-        train,
-        validation_data=validation,
-        verbose=1,
-        epochs=epochs,
-        initial_epoch=initial_epoch - 1,
-        callbacks=callbacks
-     )
+        cnn = cnn_switch[self.cnn_model][0](input_shape=input_shape, weights=weights, include_top=False)
 
-    return history
+        if self.l2 is not None:
+            print('Adding L2 regularization...')
+            cnn = self.add_l2_regularizer(cnn)
+
+        # Returns Cnn with batch normalization on input
+        return keras.Sequential([
+            keras.layers.BatchNormalization(input_shape=input_shape),
+            cnn,
+            keras.layers.GlobalAveragePooling2D()
+        ])
+
+    def add_layer_regularized(self, layer, n_neurons, activation, model, ):
+        '''
+        Adds a dense layer with L2 if specified
+
+        :param layer: Keras layer function
+        :param n_neurons: Number of neurons in the layer
+        :param activation: Activation function
+        :param model: Model to add layer
+        '''
+        if self.l2 is not None:
+            model.add(layer(n_neurons, activation=activation, kernel_regularizer=self.l2_reg))
+        else:
+            model.add(layer(n_neurons, activation=activation))
+
+    def add_fully_connected(self, model):
+        '''
+        Adds fully connected layers to the model (up to softmax layer)
+
+        :param model: model to add layers
+        '''
+        # Adds FC layers excel softmax
+        for i in range(0, self.fc_layers - 1):
+            # Adds regularization if specified
+            self.add_layer_regularized(keras.layers.Dense, self.fc_neurons, 'relu', model)
+
+            # Adds dropout if specified
+            if self.dropout > 0:
+                model.add(keras.layers.Dropout(self.dropout))
+
+        # Adds softmax layers
+        self.add_layer_regularized(keras.layers.Dense, self.n_classes, 'softmax', model)
+
+    def get_model(self):
+        model = keras.Sequential()
+
+        if self.stream_type == 's':
+            model.add(self.get_cnn('s'))
+        elif self.stream_type == 't':
+            model.add(self.get_cnn('t'))
+        else:
+            raise NotImplemented()
+
+        # Adds FC layers
+        self.add_fully_connected(model)
+
+        # Reloads model to make sure that attribute changes take effect
+        model_json = model.to_json()
+        model = keras.models.model_from_json(model_json)
+
+        # loads weights if it is a file
+        if os.path.isfile(self.weights):
+            model.load_weights(self.weights)
+            print('Weigths loaded from %s' % self.weights)
+
+        return model
