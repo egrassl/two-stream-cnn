@@ -2,8 +2,7 @@ import cv2
 import numpy as np
 
 
-OPTFLOW = cv2.DualTVL1OpticalFlow_create()
-
+#OPTFLOW = cv2.DualTVL1OpticalFlow_create()
 
 def read_video(src):
     # Extract video frames
@@ -24,7 +23,8 @@ def calculate_flow(frame1, frame2, bound=15):
     # Get motion flow
     umat1 = cv2.UMat(cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)).get()
     umat2 = cv2.UMat(cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)).get()
-    flow = OPTFLOW.calc(umat1, umat2, None)
+    flow = cv2.calcOpticalFlowFarneback(umat1, umat2, None, 0.5, 3, 15, 3, 5, 1.1, 0)
+    #flow = OPTFLOW.calc(umat1, umat2, None)
 
     # Transform data back to image format
     assert flow.dtype == np.float32
@@ -33,21 +33,6 @@ def calculate_flow(frame1, frame2, bound=15):
     flow[flow >= 255] = 255
     flow[flow <= 0] = 0
     return flow
-
-
-def extract_motion_from_frames(frames, init_frame, end_frame, nb_frames, width=350):
-    motion_frames = [calculate_flow(frame_resize(frames[i]), frame_resize(frames[i+1])) for i in range(init_frame, end_frame)]
-
-    # Stacked array has shape of width * height * 2 * nb_frames
-    stacked_flow = np.zeros(motion_frames[0][:, :, 1].shape + (2 * nb_frames,), dtype=np.uint8)
-
-    for i in range(0, nb_frames):
-
-        # Stack horizontal and vertical motion channels
-        stacked_flow[:, :, i] = motion_frames[i][:, :, 0]
-        stacked_flow[:, :, i + nb_frames] = motion_frames[i][:, :, 1]
-
-    return stacked_flow
 
 
 def frame_resize(image, width=350, height=None, inter=cv2.INTER_AREA):

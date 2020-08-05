@@ -53,49 +53,35 @@ val_cameras = ['C002']
 test_cameras = ['C003']
 
 
-def get_cs_split(files):
+def get_cs_split(video_name):
     '''
-    Returns train, validation and test cross-subject splits
+    Returns if a video belongs to the train, validation os test dataset given its name by the cross-subject method
 
-    :param files: Array with every file path. The files must be named in the default NTU format
-    :return: Train, validation and test cross-subject splits
+    :param video_name: video file name
+    :return: 'train', 'val' or 'test'
     '''
-    train = []
-    validation = []
-    test = []
+    subject = video_name[0:4]
 
-    for file in files:
-        path, file_name = os.path.split(file)
-        subject = file_name[0:4]
-        if subject in train_subjects:
-            train.append(file)
-        elif subject in val_subjects:
-            validation.append(file)
-        else:
-            test.append(file)
-
-    return train, validation, test
+    if subject in train_subjects:
+        return 'train'
+    elif subject in val_subjects:
+        return 'val'
+    else:
+        return 'test'
 
 
-def get_cv_split(files):
+def get_cv_split(video_name):
     '''
-    Returns train, validation and test cross-view splits
+    Returns if a video belongs to the train, validation os test dataset given its name by the cross-view method
 
-    :param files: Array with every file path. The files must be named in the default NTU format
-    :return: Train, validation and test cross-view splits
+    :param video_name: video file name
+    :return: 'train', 'val' or 'test'
     '''
-    train = []
-    validation = []
-    test = []
+    camera = video_name[4:8]
 
-    for file in files:
-        path, file_name = os.path.split(file)
-        camera = file_name[4:8]
-        if camera in train_cameras:
-            train.append(file)
-        elif camera in val_cameras:
-            validation.append(file)
-        else:
-            test.append(file)
-
-    return train, validation, test
+    if camera in train_cameras:
+        return 'train'
+    elif camera in val_cameras:
+        return 'val'
+    else:
+        return 'test'

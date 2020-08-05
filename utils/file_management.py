@@ -63,7 +63,7 @@ def class_iterator(path, process_sample, on_class_loaded, on_class_finished, ext
         # Gets files inside class folder
         videos = glob.glob(os.path.join(c, '*%s' % extension))
 
-        class_name = c.split('/')[-1]
+        _, class_name = os.path.split(c)
 
         if on_class_loaded is not None:
             on_class_loaded(videos, c, class_name)
@@ -82,18 +82,3 @@ def class_iterator(path, process_sample, on_class_loaded, on_class_finished, ext
 
         if on_class_finished is not None:
             on_class_finished(videos, c, class_name)
-
-
-def flow_class_iterator(path, process_video, on_class_loaded, on_class_finished, extension='.avi', verbose=False):
-
-    # horizontal flow
-    u_path = os.path.join(path, 'u')
-    on_flow_loaded = lambda videos, src, class_name: on_class_loaded(videos, path, class_name, 'u')
-    on_flow_finished = lambda videos, src, class_name: on_class_finished(videos, path, class_name, 'u')
-    class_iterator(u_path, process_video, on_flow_loaded, on_flow_finished, extension, verbose)
-
-    # vertical flow
-    v_path = os.path.join(path, 'v')
-    on_flow_loaded = lambda videos, src, class_name: on_class_loaded(videos, path, class_name, 'v')
-    on_flow_finished = lambda videos, src, class_name: on_class_finished(videos, path, class_name, 'v')
-    class_iterator(v_path, process_video, on_flow_loaded, on_flow_finished, extension, verbose)
