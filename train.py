@@ -48,7 +48,7 @@ L2 = 1e-5
 N_CLASSES = len(classes)
 FC_LAYERS = 3
 FC_NEURONS = 4096
-MODEL = ts.CNNType.VGG16
+MODEL = ts.CNNType.XCEPTION
 NB_FRAMES = 10
 
 # Callback parameters
@@ -137,6 +137,6 @@ history = model.model.fit_generator(
     validation_data=val_set,
     verbose=1,
     epochs=args.e,
-    initial_epoch=args.init,
+    initial_epoch=args.init - 1,
     callbacks=callbacks
 )
