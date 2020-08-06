@@ -89,6 +89,7 @@ class TSCNN(object):
 
         # Check if imagenet pre trained model will be used
         if self.weights == 'imagenet':
+            print('Using imagenet Weights...')
             weights = 'imagenet'
         else:
             weights = None

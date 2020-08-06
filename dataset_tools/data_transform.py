@@ -55,26 +55,29 @@ class DataExtract(object):
             if self.temporal:
                 fm.create_dirs([u_dst, v_dst], self.verbose)
 
-    def get_indexes(self, n_frames):
+    def get_indexes(self, n_frames, offset=.2):
         '''
         Gets the T distributed indexes over the video frames. It returns less indexes if could not get self.chunks indexes
 
-        :param n_frames: Number of frames in the video
-        :return: A list of frame indexes and its quantity
+        :param n_frames: number of frames in the video
+        :param offset: offset on the left of the video (to avoid the starting frames, for example)
+        :return: a list of frame indexes and its quantity
         '''
+        offset = int(n_frames * offset)
+        n = n_frames - offset
 
         # Try to find T chunks, but a smaller chunk quantity will be extracted if video is too short
         i = 0
-        indexes = [n_frames]
-        while indexes[-1] + self.nb_range >=  n_frames:
-            step = float((n_frames - 1) / (self.chunks + 1 - i))
+        indexes = [n]
+        while indexes[-1] + self.nb_range >= n:
+            step = float((n - 1) / (self.chunks + 1 - i))
             indexes = [round(step * i) for i in range(1, self.chunks + 1 - i)]
             i += 1
 
         if self.verbose:
             print('%d chunks will be extracted' % len(indexes))
 
-        return indexes
+        return [i + offset for i in indexes]
 
     def get_video_dst(self, video_name):
         '''
