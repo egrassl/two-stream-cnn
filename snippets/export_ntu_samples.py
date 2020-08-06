@@ -5,9 +5,9 @@ from shutil import copyfile
 #*********** CONFIGURATION ***********
 
 # Path where the full dataset is located
-dataset_path = "/media/coala/HD/Mestrado/code/databases/NTU/nturgb+d_rgb"
+dataset_path = r"D:\Mestrado\code\databases\NTU\nturgb+d_rgb"
 # Path where the new dataset will be created
-new_dataset_path = "/home/coala/mestrado/datasets/NTU-HOME/raw"
+new_dataset_path = r"D:\Mestrado\code\databases\NTU-HOME\raw"
 # Classes that will be used in the new dataset
 classes = ["A001", "A002", "A003", "A008", "A009", "A011", "A012", "A027", "A028", "A032", "A037", "A041", "A043",
            "A044", "A045", "A046", "A047", "A048", "A069", "A070", "A074", "A085", "A103", "A104", "A105"]

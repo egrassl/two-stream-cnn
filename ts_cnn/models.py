@@ -154,10 +154,6 @@ class TSCNN(object):
         # Adds FC layers
         self.add_fully_connected(model)
 
-        # Reloads model to make sure that attribute changes take effect
-        model_json = model.to_json()
-        model = keras.models.model_from_json(model_json)
-
         # loads weights if it is a file
         if os.path.isfile(self.weights):
             model.load_weights(self.weights)
