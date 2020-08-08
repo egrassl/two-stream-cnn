@@ -3,8 +3,8 @@ import os
 import dataset_tools.ntu_definitions as ntu
 import utils.file_management as fm
 
-src = '/home/coala/mestrado/datasets/NTU-HOME/raw'
-dst = '/home/coala/mestrado/datasets/NTU-HOME/raw'
+src = r'D:\Mestrado\code\databases\NTU-HOME\raw'
+dst = r'D:\Mestrado\code\databases\NTU-HOME\raw_classes'
 
 videos = glob.glob(os.path.join(src, '*.avi'))
 

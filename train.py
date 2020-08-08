@@ -41,14 +41,14 @@ import keras_extensions.preprocess_crop
 
 # ========== Training parameters ==========
 LEARNING_RATE = 1e-4
-# OPTIMIZER = keras.optimizers.Adam(learning_rate=50e-6)
-OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
-DROPOUT = .5
+OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
+# OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
+DROPOUT = .75
 L2 = 1e-5
 N_CLASSES = len(classes)
 FC_LAYERS = 3
 FC_NEURONS = 4096
-MODEL = ts.CNNType.XCEPTION
+MODEL = ts.CNNType.VGG16
 NB_FRAMES = 10
 
 # Callback parameters
