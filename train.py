@@ -2,6 +2,7 @@ import argparse
 import os
 import glob
 import utils.file_management as fm
+import numpy as np
 
 # Creates checkup directory if it does not exists
 fm.create_dir(os.path.join(os.getcwd(), 'chkp'))
@@ -40,15 +41,15 @@ import keras
 import keras_extensions.preprocess_crop
 
 # ========== Training parameters ==========
-LEARNING_RATE = 1e-4
+LEARNING_RATE = np.power(50., -4.)
 # OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
-DROPOUT = .9
+DROPOUT = .85
 L2 = 5e-4
 N_CLASSES = len(classes)
 FC_LAYERS = 3
 FC_NEURONS = 4096
-MODEL = ts.CNNType.XCEPTION
+MODEL = ts.CNNType.VGG16
 NB_FRAMES = 10
 
 # Callback parameters
@@ -65,8 +66,8 @@ def l_schedule(epoch, lr):
 
 # Keras callbacks
 callbacks = [
-        # keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=DECAY_PATIENCE, verbose=1),
-        keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=DECAY_PATIENCE, verbose=1, min_lr=np.power(50., -5.)),
+        # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.EarlyStopping(patience=E_STOP_PATIENCE),
         keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_best.hdf5' % args.n), save_weights_only=True, save_best_only=True, verbose=1),
         keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_last.hdf5' % args.n), save_weights_only=True, verbose=1),
@@ -99,7 +100,7 @@ if args.t == 's':
         batch_size=args.bs,
         color_mode='rgb',
         shuffle=True,
-        interpolation='lanczos:random',
+        interpolation='lanczos:center',
         # save_to_dir='/home/coala/mestrado/test-data'
     )
 
