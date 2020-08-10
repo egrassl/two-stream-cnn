@@ -41,24 +41,32 @@ import keras_extensions.preprocess_crop
 
 # ========== Training parameters ==========
 LEARNING_RATE = 1e-4
-OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
-# OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
-DROPOUT = .75
-L2 = 1e-5
+# OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
+OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
+DROPOUT = .9
+L2 = 5e-4
 N_CLASSES = len(classes)
 FC_LAYERS = 3
 FC_NEURONS = 4096
-MODEL = ts.CNNType.VGG16
+MODEL = ts.CNNType.XCEPTION
 NB_FRAMES = 10
 
 # Callback parameters
 DECAY_PATIENCE = 8
 E_STOP_PATIENCE = 15
 
+
+def l_schedule(epoch, lr):
+    if epoch < 20:
+        return lr
+    else:
+        return lr * .1
+
+
 # Keras callbacks
 callbacks = [
-        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=DECAY_PATIENCE, verbose=1),
-        # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
+        # keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=DECAY_PATIENCE, verbose=1),
+        keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.EarlyStopping(patience=E_STOP_PATIENCE),
         keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_best.hdf5' % args.n), save_weights_only=True, save_best_only=True, verbose=1),
         keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_last.hdf5' % args.n), save_weights_only=True, verbose=1),
