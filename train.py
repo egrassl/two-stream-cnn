@@ -2,6 +2,7 @@ import argparse
 import os
 import glob
 import utils.file_management as fm
+import numpy as np
 
 # Creates checkup directory if it does not exists
 fm.create_dir(os.path.join(os.getcwd(), 'chkp'))
@@ -41,11 +42,11 @@ import keras_extensions.preprocess_crop
 import keras_extensions.callbacks as kex
 
 # ========== Training parameters ==========
-LEARNING_RATE = 1e-4
-OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
-# OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
-DROPOUT = .75
-L2 = 1e-5
+LEARNING_RATE = np.power(50., -4.)
+# OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
+OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
+DROPOUT = .85
+L2 = 5e-4
 N_CLASSES = len(classes)
 FC_LAYERS = 1
 FC_NEURONS = 4096
@@ -57,8 +58,11 @@ DECAY_PATIENCE = 8
 E_STOP_PATIENCE = 15
 
 
-def l_schedule(epoch):
-    print()
+def l_schedule(epoch, lr):
+    if epoch < 20:
+        return lr
+    else:
+        return lr * .1
 
 
 # Keras callbacks
@@ -99,7 +103,7 @@ if args.t == 's':
         batch_size=args.bs,
         color_mode='rgb',
         shuffle=True,
-        interpolation='lanczos:random',
+        interpolation='lanczos:center',
         # save_to_dir='/home/coala/mestrado/test-data'
     )
 
