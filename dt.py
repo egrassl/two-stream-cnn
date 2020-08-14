@@ -1,11 +1,12 @@
 import argparse
 import dataset_tools.data_transform as dt
 import dataset_tools.ntu_definitions as ntu
+import random
 
 parser = argparse.ArgumentParser()
 
 # Script arguments
-parser.add_argument('mode', type=str, choices=['ntu-cs', 'ntu-cv'], help='Indicates what split will be done'),
+parser.add_argument('mode', type=str, choices=['ntu-cs', 'ntu-cv', 'split'], help='Indicates what split will be done'),
 parser.add_argument('src', metavar='dataset path', type=str, help='path to the RGB video dataset')
 parser.add_argument('dst', metavar='extraction destiny', type=str, help='path where extracted frames will be saved')
 parser.add_argument('--type', type=str, choices=['s', 't', 'st'],  help='indicates what kind of extraction will be done', required=True)
@@ -21,8 +22,10 @@ temporal = args.type == 't' or args.type == 'st'
 
 if args.mode == 'ntu-cs':
     split_func = ntu.get_cs_split
-else:
+elif args.mode == 'ntu-cv':
     split_func = ntu.get_cv_split
+else:
+    split_func = lambda x: 'train' if random.uniform(0, 1) <= .7 else 'val'
 
 extractor = dt.DataExtract(src=args.src,
                            dst=args.dst,

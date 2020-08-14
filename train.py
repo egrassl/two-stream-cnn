@@ -38,6 +38,7 @@ classes = [i.split(os.path.sep)[-1] for i in glob.glob(os.path.join(args.dataset
 import ts_cnn.models as ts
 import keras
 import keras_extensions.preprocess_crop
+import keras_extensions.callbacks as kex
 
 # ========== Training parameters ==========
 LEARNING_RATE = 1e-4
@@ -46,7 +47,7 @@ OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 DROPOUT = .75
 L2 = 1e-5
 N_CLASSES = len(classes)
-FC_LAYERS = 3
+FC_LAYERS = 1
 FC_NEURONS = 4096
 MODEL = ts.CNNType.VGG16
 NB_FRAMES = 10
@@ -55,13 +56,20 @@ NB_FRAMES = 10
 DECAY_PATIENCE = 8
 E_STOP_PATIENCE = 15
 
+
+def l_schedule(epoch):
+    print()
+
+
 # Keras callbacks
 callbacks = [
         keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=DECAY_PATIENCE, verbose=1),
         # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.EarlyStopping(patience=E_STOP_PATIENCE),
-        keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_best.hdf5' % args.n), save_weights_only=True, save_best_only=True, verbose=1),
-        keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_last.hdf5' % args.n), save_weights_only=True, verbose=1),
+        # keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_best.h5' % args.n), save_weights_only=True, save_best_only=True, verbose=1),
+        # keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_last.h5' % args.n), save_weights_only=True, verbose=1),
+        kex.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_best.h5' % args.n), save_best_only=True),
+        kex.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_last.h5' % args.n), save_best_only=False),
         keras.callbacks.CSVLogger(filename='chkp/%s.hist' % args.n, separator=',', append=not args.new)
     ]
 

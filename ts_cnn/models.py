@@ -1,6 +1,7 @@
 import os
 import keras
 import utils.file_management as fm
+import keras_extensions.model_funcs as mf
 from enum import Enum
 
 
@@ -48,23 +49,11 @@ class TSCNN(object):
         if os.path.isfile(tmp_weights_path):
             os.remove(tmp_weights_path)
 
-        # Registers which layer is trainable
-        trainable = [layer.trainable for layer in model.layers]
+        mf.save_model(model, tmp_weights_path)
 
-        # Freeze layers to avoid bug when loading model back
-        for layer in model.layers:
-            layer.trainable = False
+        model = mf.reload_model(model)
 
-        # Reloads model to make sure that attribute changes take effect
-        model_json = model.to_json()
-        model.save_weights(tmp_weights_path)
-
-        model = keras.models.model_from_json(model_json)
-        model.load_weights(tmp_weights_path, by_name=True)
-
-        # Reloads training status for each reloaded layer
-        for i in range(0, len(model.layers)):
-            model.layers[i].trainable = trainable[i]
+        mf.load_weights(model, tmp_weights_path)
 
         # Remove old weights file
         os.remove(tmp_weights_path)
@@ -156,7 +145,7 @@ class TSCNN(object):
 
         # loads weights if it is a file
         if os.path.isfile(self.weights):
-            model.load_weights(self.weights)
+            mf.load_weights(model, self.weights)
             print('Weights loaded from %s' % self.weights)
 
         return model
