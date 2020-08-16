@@ -2,6 +2,7 @@ import os
 import cv2
 import utils.file_management as fm
 import utils.video_processing as vp
+import pandas as pd
 
 
 class DataExtract(object):
@@ -16,6 +17,11 @@ class DataExtract(object):
         self.temporal = temporal
         self.verbose = verbose
         self.split_func = split_func
+
+        # Setup CSV classes file
+        self.data_frame = pd.DataFrame(columns=['class', 'split', 'sample', 'nb_chunks'])
+        self.csv_file = os.path.join(dst, 'dataset_info.csv')
+        self.sample_count = 0
 
         # set splits directories and creates them if needed
         self.train_dst = os.path.join(dst, 'train')
@@ -99,12 +105,12 @@ class DataExtract(object):
         u_dst = os.path.join(dst, 'temporal', 'u')
         v_dst = os.path.join(dst, 'temporal', 'v')
 
-        return s_dst, u_dst, v_dst
+        return s_dst, u_dst, v_dst, split
 
     def process_video(self, frames, video_name, class_path, class_name):
 
         # Defines if sample is a training, validation or test sample
-        s_dst, u_dst, v_dst = self.get_video_dst(video_name)
+        s_dst, u_dst, v_dst, split = self.get_video_dst(video_name)
 
         if self.verbose:
             print('\n(%d, %d, %d) video loaded: %s' % (len(frames), len(frames[0]), len(frames[0][1]), video_name))
@@ -116,6 +122,10 @@ class DataExtract(object):
         for i in indexes:
 
             suffix = str(count).zfill(3)
+
+            # Adds sample definitions to csv
+            self.data_frame.loc[self.sample_count] = [class_name, split, video_name[:-4] + '_%s' % suffix, len(indexes)]
+            self.sample_count += 1
 
             # Saves spatial frame if it doesn't exist yet
             if self.spatial:
@@ -145,7 +155,7 @@ class DataExtract(object):
 
                     else:
                         # Get motion flow
-                        flow = vp.calculate_flow(vp.frame_resize(frames[j]), vp.frame_resize(frames[j+1]))
+                        flow = vp.calculate_flow(vp.frame_resize(frames[j]), vp.frame_resize(frames[j+1]), flow_type=1)
 
                         cv2.imwrite(u_file_path, flow[:, :, 0])
                         cv2.imwrite(v_file_path, flow[:, :, 1])
@@ -170,6 +180,9 @@ class DataExtract(object):
                           on_class_finished=None,
                           extension='.avi',
                           verbose=self.verbose)
+
+        # Writes dataset csv file
+        self.data_frame.to_csv(self.csv_file)
 
         if self.verbose:
             print('\nSamples extraction was finished with success!!')

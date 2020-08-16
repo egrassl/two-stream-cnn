@@ -42,7 +42,7 @@ import keras_extensions.preprocess_crop
 import keras_extensions.callbacks as kex
 
 # ========== Training parameters ==========
-LEARNING_RATE = np.power(50., -4.)
+LEARNING_RATE = 1e-4 # np.power(50., -4.)
 # OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
 DROPOUT = .85
@@ -70,8 +70,6 @@ callbacks = [
         keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=DECAY_PATIENCE, verbose=1),
         # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.EarlyStopping(patience=E_STOP_PATIENCE),
-        # keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_best.h5' % args.n), save_weights_only=True, save_best_only=True, verbose=1),
-        # keras.callbacks.ModelCheckpoint(os.path.join('chkp/', '%s_last.h5' % args.n), save_weights_only=True, verbose=1),
         kex.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_best.h5' % args.n), save_best_only=True),
         kex.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_last.h5' % args.n), save_best_only=False),
         keras.callbacks.CSVLogger(filename='chkp/%s.hist' % args.n, separator=',', append=not args.new)

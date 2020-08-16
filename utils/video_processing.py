@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 
 
-#OPTFLOW = cv2.DualTVL1OpticalFlow_create()
+TVL1 = cv2.DualTVL1OpticalFlow_create()
+
 
 def read_video(src):
     # Extract video frames
@@ -19,12 +20,15 @@ def read_video(src):
     return frames
 
 
-def calculate_flow(frame1, frame2, bound=15):
+def calculate_flow(frame1, frame2, bound=15, flow_type=1):
     # Get motion flow
     umat1 = cv2.UMat(cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)).get()
     umat2 = cv2.UMat(cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)).get()
-    flow = cv2.calcOpticalFlowFarneback(umat1, umat2, None, 0.5, 3, 15, 3, 5, 1.1, 0)
-    #flow = OPTFLOW.calc(umat1, umat2, None)
+
+    if flow_type == 1:
+        flow = cv2.calcOpticalFlowFarneback(umat1, umat2, None, 0.5, 3, 15, 3, 5, 1.1, 0)
+    else:
+        flow = TVL1.calc(umat1, umat2, None)
 
     # Transform data back to image format
     assert flow.dtype == np.float32

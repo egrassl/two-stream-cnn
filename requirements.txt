@@ -4,3 +4,4 @@ opencv
 numpy
 pillow
 pandas
+scikit-image
