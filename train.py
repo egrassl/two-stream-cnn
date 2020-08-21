@@ -2,7 +2,6 @@ import argparse
 import os
 import glob
 import utils.file_management as fm
-import numpy as np
 
 # Creates checkup directory if it does not exists
 fm.create_dir(os.path.join(os.getcwd(), 'chkp'))
@@ -35,20 +34,23 @@ if args.gpu is not None:
 # Get classes by dataset's subdirectories
 classes = [i.split(os.path.sep)[-1] for i in glob.glob(os.path.join(args.dataset, '*'))]
 
+
 # Keras related packages are imported after GPU argument to respect the GPU choice
 import ts_cnn.models as ts
 import keras
 import keras_extensions.preprocess_crop
-import keras_extensions.callbacks as kex
+import keras_extensions.callbacks as callbacks
+import keras_extensions.MotionFlowDataGenerator as mfg
 
 # ========== Training parameters ==========
-LEARNING_RATE = 1e-4 # np.power(50., -4.)
-# OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
-OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
+LEARNING_RATE = 1e-5 # np.power(50., -4.)
+OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
+# OPTIMIZER = keras.optimizers.SGD(learning_rate=LEARNING_RATE, momentum=.9)
 DROPOUT = .85
 L2 = 5e-4
-N_CLASSES = len(classes)
-FC_LAYERS = 1
+# N_CLASSES = len(classes)
+N_CLASSES = 3
+FC_LAYERS = 3
 FC_NEURONS = 4096
 MODEL = ts.CNNType.VGG16
 NB_FRAMES = 10
@@ -70,8 +72,8 @@ callbacks = [
         keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=DECAY_PATIENCE, verbose=1),
         # keras.callbacks.LearningRateScheduler(l_schedule, verbose=True),
         keras.callbacks.EarlyStopping(patience=E_STOP_PATIENCE),
-        kex.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_best.h5' % args.n), save_best_only=True),
-        kex.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_last.h5' % args.n), save_best_only=False),
+        callbacks.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_best.h5' % args.n), save_best_only=True),
+        callbacks.CustomCheckpointCallback(filename=os.path.join('chkp/', '%s_last.h5' % args.n), save_best_only=False),
         keras.callbacks.CSVLogger(filename='chkp/%s.hist' % args.n, separator=',', append=not args.new)
     ]
 
@@ -85,8 +87,8 @@ train_datagen = keras.preprocessing.image.ImageDataGenerator(
         zoom_range=.3,
         horizontal_flip=True,
         rotation_range=60,
-        # width_shift_range=.25,
-        # height_shift_range=.25,
+        width_shift_range=.25,
+        height_shift_range=.25,
         channel_shift_range=.35,
         brightness_range=[.3, 1.5],
         rescale=1.0/255.0
@@ -110,7 +112,23 @@ if args.t == 's':
     val_set = val_datagen.flow_from_directory(args.val, target_size=INPUT_SIZE, color_mode='rgb')
 
 elif args.t == 't':
-    raise NotImplemented()
+    train_set = mfg.MotionFlowDataGenerator(
+        path=args.dataset,
+        split='train',
+        nb_frames=NB_FRAMES,
+        batch_size=args.bs,
+        input_shape=INPUT_SIZE
+        # data_augmentation=image_aug
+    )
+
+    val_set = mfg.MotionFlowDataGenerator(
+        path=args.dataset,
+        split='val',
+        nb_frames=NB_FRAMES,
+        batch_size=args.bs,
+        input_shape=INPUT_SIZE
+        # data_augmentation=image_aug
+    )
 
 else:
     raise NotImplemented()
@@ -148,5 +166,7 @@ history = model.model.fit_generator(
     verbose=1,
     epochs=args.e,
     initial_epoch=args.init - 1,
-    callbacks=callbacks
+    callbacks=callbacks,
+    use_multiprocessing=True,
+    workers=8
 )

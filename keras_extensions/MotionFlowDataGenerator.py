@@ -10,21 +10,33 @@ from skimage.transform import resize
 
 class MotionFlowDataGenerator(keras.utils.Sequence):
 
-    def __init__(self, path, nb_frames, batch_size, input_shape, split='train', shuffle=True):
+    def __init__(self, path, nb_frames, batch_size, input_shape, split='train', shuffle=True,
+                 data_augmentation: keras.preprocessing.image.ImageDataGenerator = None):
         # Setup dataset variables
         self.path = path
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.nb_frames = nb_frames
         self.input_shape = input_shape
+        self.data_augmentation = data_augmentation
+        self.split = split
 
         # Get classes in training folder
         self.classes = self.__get_classes()
 
         # Sets dataframe for sample training
         self.df = pd.read_csv(os.path.join(path, 'dataset_info.csv'))
-        self.n_samples = len(self.df)
+
+        # Drop df rows that are not from the specified split
+        split_indexes = []
+        for i in range(0, len(self.df)):
+            if self.df['split'][i] != self.split:
+                split_indexes.append(i)
+        self.df = self.df.drop(self.df.index[split_indexes])
+        print('Found %d classes and %d images for %s split!!' % (len(self.classes), len(self.df), self.split))
+
         self.indexes = self.df.index.tolist()
+        self.n_samples = len(self.df)
 
         self.on_epoch_end()
 
@@ -38,9 +50,6 @@ class MotionFlowDataGenerator(keras.utils.Sequence):
         classes = glob.glob(os.path.join(u_path))
         classes = [os.path.split(c)[1] for c in classes]
         classes.sort()
-
-        # Prints user about those definitions
-        print('Found %d classes' % len(classes))
 
         return classes
 
@@ -65,6 +74,11 @@ class MotionFlowDataGenerator(keras.utils.Sequence):
         # transform result in batch like ndarray and makes y hot encoded
         x = np.array([r[0] for r in result])
         y = to_categorical([r[1] for r in result], num_classes=len(self.classes))
+
+        # applies transformation if specified
+        if self.data_augmentation is not None:
+            transforms = [self.data_augmentation.get_random_transform(sample.shape) for sample in x]
+            x = [self.data_augmentation.apply_transform(x[i], transforms[i]) for i in range(0, len(x))]
 
         return x, y
 
@@ -106,12 +120,35 @@ class MotionFlowDataGenerator(keras.utils.Sequence):
 
 
 if __name__ == '__main__':
+
+    # Creates data Augmentation generator
+    image_aug = keras.preprocessing.image.ImageDataGenerator(
+        zoom_range=.3,
+        horizontal_flip=True,
+        rotation_range=60,
+        width_shift_range=.25,
+        height_shift_range=.25,
+        channel_shift_range=.35,
+        brightness_range=[.3, 1.5],
+        rescale=1.0 / 255.0
+    )
+
     generator = MotionFlowDataGenerator(
-        path=r'D:\Mestrado\databases\UCF101\test',
+        path=r'/home/coala/mestrado/datasets/UCF003/',
         split='train',
         nb_frames=10,
         batch_size=32,
-        input_shape=(224, 224),
+        input_shape=(224, 224)
+        # data_augmentation=image_aug
+    )
+
+    val_generator = MotionFlowDataGenerator(
+        path=r'/home/coala/mestrado/datasets/UCF003/',
+        split='val',
+        nb_frames=10,
+        batch_size=32,
+        input_shape=(224, 224)
+        # data_augmentation=image_aug
     )
 
     # test model
@@ -127,7 +164,7 @@ if __name__ == '__main__':
 
     model.summary()
 
-    OPTIMIZER = keras.optimizers.Adam(learning_rate=1e-3)
+    OPTIMIZER = keras.optimizers.Adam(learning_rate=1e-4)
 
     model.compile(
         OPTIMIZER,
@@ -137,9 +174,10 @@ if __name__ == '__main__':
 
     history = model.fit_generator(
         generator,
+        validation_data=val_generator,
         verbose=1,
         epochs=100,
         use_multiprocessing=True,
-        workers=4,
-        max_queue_size=20
+        workers=8
+        # max_queue_size=20
     )

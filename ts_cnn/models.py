@@ -94,8 +94,7 @@ class TSCNN(object):
         # Returns Cnn with batch normalization on input
         return keras.Sequential([
             keras.layers.BatchNormalization(input_shape=input_shape),
-            cnn,
-            keras.layers.GlobalAveragePooling2D()
+            cnn
         ])
 
     def add_layer_regularized(self, layer, n_neurons, activation, model):
@@ -118,6 +117,8 @@ class TSCNN(object):
 
         :param model: model to add layers
         '''
+        model.add(keras.layers.Flatten())
+
         # Adds FC layers excel softmax
         for i in range(0, self.fc_layers - 1):
             # Adds regularization if specified
@@ -144,7 +145,7 @@ class TSCNN(object):
         self.add_fully_connected(model)
 
         # loads weights if it is a file
-        if os.path.isfile(self.weights):
+        if self.weights is not None and os.path.isfile(self.weights):
             mf.load_weights(model, self.weights)
             print('Weights loaded from %s' % self.weights)
 
