@@ -34,7 +34,7 @@ def load_weights(model, weights_file):
     # Registers which layer is trainable
     trainable = [layer.trainable for layer in model.layers]
 
-    model.load_weights(weights_file)
+    model.load_weights(weights_file, by_name=True)
 
     # Reloads training status for each reloaded layer
     for i in range(0, len(model.layers)):

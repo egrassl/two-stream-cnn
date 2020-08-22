@@ -12,7 +12,7 @@ class CNNType(Enum):
 
 class TSCNN(object):
 
-    def __init__(self, cnn_model, stream_type, n_classes, fc_layers, fc_neuros, nb_frames, dropout, l2, callbacks, weights):
+    def __init__(self, cnn_model, stream_type, n_classes, fc_layers, fc_neuros, nb_frames, dropout, l2, callbacks, weights, spatial_weights, temporal_weights):
         self.cnn_model = cnn_model
         self.stream_type = stream_type
         self.n_classes = n_classes
@@ -23,6 +23,8 @@ class TSCNN(object):
         self.l2 = l2
         self.callbacks = callbacks
         self.weights = weights
+        self.spatial_weights = spatial_weights
+        self.temporal_weights = temporal_weights
 
         self.l2_reg = keras.regularizers.l2(l2)
 
@@ -60,7 +62,7 @@ class TSCNN(object):
 
         return model
 
-    def get_cnn(self, stream_type):
+    def get_cnn(self, stream_type, name='cnn'):
         '''
         Returns the cnn model for the given stream
 
@@ -92,6 +94,8 @@ class TSCNN(object):
             cnn = self.add_l2_regularizer(cnn)
 
         # Returns Cnn with batch normalization on input
+
+        cnn.name = name
         return keras.Sequential([
             keras.layers.BatchNormalization(input_shape=input_shape),
             cnn
@@ -139,7 +143,32 @@ class TSCNN(object):
         elif self.stream_type == 't':
             model.add(self.get_cnn('t'))
         else:
-            raise NotImplemented()
+
+            # Checks if both streams weighs were provided
+            if self.spatial_weights is None or not os.path.isfile(self.spatial_weights) or self.temporal_weights is None or not os.path.isfile(self.temporal_weights):
+                raise Exception('both spatial and temporal weights files must be provided to train this model!')
+
+            spatial = self.get_cnn('s', 'cnn_spatial')
+            mf.load_weights(spatial, self.spatial_weights)
+            for layer in spatial.layers:
+                layer.trainable = False
+
+            temporal = self.get_cnn('t', 'cnn_temporal')
+            mf.load_weights(temporal, self.temporal_weights)
+            for layer in temporal.layers:
+                layer.trainable = False
+
+            combined = keras.layers.concatenate([spatial.output, temporal.output])
+
+            # fc = keras.layers.Conv3D(filters=(1, 1, 1024), kernel_size=(3, 3, 3))(combined)
+            # fc = keras.layers.GlobalMaxPooling3D()(fc)
+            fc = keras.layers.Dense(4096, activation='relu', kernel_regularizer=self.l2_reg)(combined)
+            fc = keras.layers.Dense(4096, activation='relu', kernel_regularizer=self.l2_reg)(fc)
+            fc = keras.layers.Dense(self.n_classes, activation='softmax', kernel_regularizer=self.l2_reg)(fc)
+
+            model = keras.Model(inputs=[spatial.input, temporal.input], outputs=fc)
+
+            return model
 
         # Adds FC layers
         self.add_fully_connected(model)
@@ -150,3 +179,33 @@ class TSCNN(object):
             print('Weights loaded from %s' % self.weights)
 
         return model
+
+
+if __name__ == '__main__':
+
+    model = TSCNN(
+        cnn_model=CNNType.VGG16,
+        stream_type='st',
+        n_classes=3,
+        fc_layers=3,
+        fc_neuros=4096,
+        nb_frames=10,
+        dropout=.85,
+        l2=1e-5,
+        callbacks=[],
+        weights=None,
+        spatial_weights=r'/home/coala/mestrado/ts-cnn/chkp/joint_test_spatial_best.h5',
+        temporal_weights=r'/home/coala/mestrado/ts-cnn/chkp/joint_test_temporal_best.h5'
+    )
+
+    OPTIMIZER = keras.optimizers.Adam(learning_rate=1e-5)
+
+    # Compiles and train the model
+    model.model.compile(
+        OPTIMIZER,
+        keras.losses.CategoricalCrossentropy(),
+        metrics=['acc']
+    )
+
+    model.model.summary()
+
