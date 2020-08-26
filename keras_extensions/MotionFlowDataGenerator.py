@@ -1,100 +1,21 @@
 import keras
 import numpy as np
-import pandas as pd
 import os
-from keras.utils import to_categorical
-import glob
 from skimage.io import imread
 from skimage.transform import resize
+from keras_extensions import CustomDataGenerator
 
 
-class MotionFlowDataGenerator(keras.utils.Sequence):
+class MotionFlowDataGenerator(CustomDataGenerator.CustomDataGenerator):
 
-    def __init__(self, path, nb_frames, batch_size, input_shape, split='train', shuffle=True,
-                 data_augmentation: keras.preprocessing.image.ImageDataGenerator = None):
-        # Setup dataset variables
-        self.path = path
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.nb_frames = nb_frames
-        self.input_shape = input_shape
-        self.data_augmentation = data_augmentation
-        self.split = split
+    def __load_flow(self, img_path, transform):
+        img = imread(img_path)
+        img = keras.preprocessing.image.img_to_array(img)
+        img = self.data_augmentation.apply_transform(img, transform) if transform is not None else img
+        img = resize(img, self.input_shape)
+        return img * (1.0/255.0)
 
-        # Get classes in training folder
-        self.classes = self.__get_classes()
-
-        # Sets dataframe for sample training
-        self.df = pd.read_csv(os.path.join(path, 'dataset_info.csv'))
-
-        # Drop df rows that are not from the specified split
-        split_indexes = []
-        for i in range(0, len(self.df)):
-            if self.df['split'][i] != self.split:
-                split_indexes.append(i)
-        self.df = self.df.drop(self.df.index[split_indexes])
-        print('Found %d classes and %d images for %s split!!' % (len(self.classes), len(self.df), self.split))
-
-        self.indexes = self.df.index.tolist()
-        self.n_samples = len(self.df)
-
-        self.on_epoch_end()
-
-    def __get_classes(self):
-        '''
-        Returns an array with all classes name in the training folder of the dataset
-        '''
-
-        # Finds how many classes folders there are in the train dataset
-        u_path = os.path.join(self.path, 'train', 'temporal', 'u', '*')
-        classes = glob.glob(os.path.join(u_path))
-        classes = [os.path.split(c)[1] for c in classes]
-        classes.sort()
-
-        return classes
-
-    def __len__(self):
-        '''
-        Returns the total of batches for the training
-        '''
-        return self.n_samples // self.batch_size
-
-    def on_epoch_end(self):
-        if self.shuffle:
-            np.random.shuffle(self.indexes)
-
-    def __getitem__(self, index):
-        '''
-        Gets the batch for training
-        '''
-        # Gets samples indexes
-        indexes = [i for i in range(index * self.batch_size, (index + 1) * self.batch_size)]
-        result = [self.__get_data(i) for i in indexes]
-
-        # transform result in batch like ndarray and makes y hot encoded
-        x = np.array([r[0] for r in result])
-        y = to_categorical([r[1] for r in result], num_classes=len(self.classes))
-
-        # applies transformation if specified
-        if self.data_augmentation is not None:
-            transforms = [self.data_augmentation.get_random_transform(sample.shape) for sample in x]
-            x = [self.data_augmentation.apply_transform(x[i], transforms[i]) for i in range(0, len(x))]
-
-        return x, y
-
-    def __get_data(self, index):
-
-        index = self.indexes[index]
-
-        # Gets all sample definitions
-        class_name = self.df['class'][index]
-        split = self.df['split'][index]
-        video_name = self.df['sample'][index]
-
-        # Get horizontal and vertical flow path
-        u_path = os.path.join(self.path, split, 'temporal', 'u', class_name)
-        v_path = os.path.join(self.path, split, 'temporal', 'v', class_name)
-
+    def get_data(self, s_path, u_path, v_path, sample_name, transform):
         # Create stacked flow image
         image = np.empty(self.input_shape + (2 * self.nb_frames,))
         channel_count = 0
@@ -103,20 +24,19 @@ class MotionFlowDataGenerator(keras.utils.Sequence):
             v_img = None
 
             # Get horizontal and vertical frames
-            u_img = resize(imread(os.path.join(u_path, video_name + '_u%s.jpg' % str(i).zfill(3))), self.input_shape)
-            u_img = u_img - np.mean(u_img)
+            u_img_path = os.path.join(u_path, sample_name + '_u%s.jpg' % str(i).zfill(3))
+            u_img = self.__load_flow(u_img_path, transform)
 
-            v_img = resize(imread(os.path.join(v_path, video_name + '_v%s.jpg' % str(i).zfill(3))), self.input_shape)
-            # v_img = np.swapaxes(v_img, 0, 1)
-            v_img = v_img - np.mean(v_img)
+            v_img_path = os.path.join(v_path, sample_name + '_v%s.jpg' % str(i).zfill(3))
+            v_img = self.__load_flow(v_img_path, transform)
 
             # Stack frames
-            image[:, :, channel_count] = u_img[:, :]
+            image[:, :, channel_count] = u_img[:, :, 0]
             channel_count += 1
-            image[:, :, channel_count] = v_img[:, :]
+            image[:, :, channel_count] = v_img[:, :, 0]
             channel_count += 1
 
-        return image, self.classes.index(class_name)
+        return image
 
 
 if __name__ == '__main__':
@@ -129,24 +49,23 @@ if __name__ == '__main__':
         width_shift_range=.25,
         height_shift_range=.25,
         channel_shift_range=.35,
-        brightness_range=[.3, 1.5],
-        rescale=1.0 / 255.0
+        brightness_range=[.3, 1.5]
     )
 
     generator = MotionFlowDataGenerator(
-        path=r'/home/coala/mestrado/datasets/UCF003/',
+        path=r'D:\Mestrado\databases\UCF101\test',
         split='train',
         nb_frames=10,
-        batch_size=32,
-        input_shape=(224, 224)
-        # data_augmentation=image_aug
+        batch_size=4,
+        input_shape=(224, 224),
+        data_augmentation=image_aug
     )
 
     val_generator = MotionFlowDataGenerator(
-        path=r'/home/coala/mestrado/datasets/UCF003/',
+        path=r'D:\Mestrado\databases\UCF101\test',
         split='val',
         nb_frames=10,
-        batch_size=32,
+        batch_size=4,
         input_shape=(224, 224)
         # data_augmentation=image_aug
     )
@@ -154,7 +73,10 @@ if __name__ == '__main__':
     # test model
     model = keras.Sequential()
     model.add(keras.applications.VGG16(include_top=False, input_shape=(224, 224, 20), weights=None))
-    model.add(keras.layers.Flatten())
+    td = keras.layers.TimeDistributed(input_shape=(5, 224, 224, 20), layer=model)
+    model = keras.Sequential()
+    model.add(td)
+    model.add(keras.layers.GlobalMaxPooling3D())
     model.add(keras.layers.Dropout(.5))
     model.add(keras.layers.Dense(4096, activation='relu', name='fc1'))
     model.add(keras.layers.Dropout(.5))
@@ -164,7 +86,7 @@ if __name__ == '__main__':
 
     model.summary()
 
-    OPTIMIZER = keras.optimizers.Adam(learning_rate=1e-4)
+    OPTIMIZER = keras.optimizers.Adam(learning_rate=1e-3)
 
     model.compile(
         OPTIMIZER,
