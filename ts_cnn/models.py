@@ -12,29 +12,35 @@ class CNNType(Enum):
 
 class TSCNN(object):
 
-    def __init__(self, cnn_model, stream_type, n_classes, fc_layers, fc_neuros, nb_frames, dropout, l2, callbacks, weights, spatial_weights, temporal_weights):
+    def __init__(self, cnn_model: CNNType, stream_type: str, n_classes: int, fc_layers: int, fc_neurons: int,
+                 chunks: int, nb_frames: int, dropout: float, l2: float, st_weights: str = None,
+                 spatial_weights: str = None, temporal_weights: str = None):
+
+        # Cnn model (VGG or Xception) and stream type
         self.cnn_model = cnn_model
         self.stream_type = stream_type
+
+        # Parameters used to build the model
         self.n_classes = n_classes
         self.fc_layers = fc_layers
-        self.fc_neurons = fc_neuros
+        self.fc_neurons = fc_neurons
+        self.nb_chunks = chunks
         self.nb_frames = nb_frames
         self.dropout = dropout
-        self.l2 = l2
-        self.callbacks = callbacks
-        self.weights = weights
+        self.l2_reg = keras.regularizers.l2(l2) if l2 is not None else None
+
+        # Weights definitions (loaded by name)
+        self.st_weights = st_weights
         self.spatial_weights = spatial_weights
         self.temporal_weights = temporal_weights
 
-        self.l2_reg = keras.regularizers.l2(l2)
-
+        # Build the model that will be trained
         self.model = self.get_model()
 
-    def add_l2_regularizer(self, model):
+    def __add_l2_regularizer(self, model):
         '''
         Adds L2 regularizer for each model Layer
 
-        :param model: model to be regularized
         :return: new model object with regularization
         '''
         # Adds regularizer to all layers
@@ -48,21 +54,21 @@ class TSCNN(object):
         fm.create_dir(os.path.join(os.getcwd(), 'tmp'))
         tmp_weights_path = os.path.join(os.getcwd(), 'tmp', 'tmp_weights.h5')
 
+        # Remove saving file if it already exited
         if os.path.isfile(tmp_weights_path):
             os.remove(tmp_weights_path)
 
+        # Reload model structure and weights
         mf.save_model(model, tmp_weights_path)
-
         model = mf.reload_model(model)
-
         mf.load_weights(model, tmp_weights_path)
 
-        # Remove old weights file
+        # Remove weights file
         os.remove(tmp_weights_path)
 
         return model
 
-    def get_cnn(self, stream_type, name='cnn'):
+    def __get_cnn(self, stream_type: str, imagenet: bool):
         '''
         Returns the cnn model for the given stream
 
@@ -73,35 +79,35 @@ class TSCNN(object):
         if stream_type != 's' and stream_type != 't':
             raise Exception('Stream type can only be s for spatial and t for temporal')
 
+        # Defines CNNs combinations
         cnn_switch = {
             CNNType.VGG16: (keras.applications.VGG16, (224, 224, 3) if stream_type == 's' else (224, 224, 2 * self.nb_frames)),
             CNNType.XCEPTION: (keras.applications.Xception, (299, 299, 3) if stream_type == 's' else (299, 299, 2 * self.nb_frames)),
         }
 
-        # Check if imagenet pre trained model will be used
-        if self.weights == 'imagenet':
-            print('Using imagenet Weights...')
-            weights = 'imagenet'
-        else:
-            weights = None
+        if imagenet:
+            print('Loading default CNN\'s imagenet weights')
 
+        # Loads CNN model from keras applications
+        weights = 'imagenet' if imagenet else None
         input_shape = cnn_switch[self.cnn_model][1]
-
         cnn = cnn_switch[self.cnn_model][0](input_shape=input_shape, weights=weights, include_top=False)
 
-        if self.l2 is not None:
+        # Adds L2 regularization if specified
+        if self.l2_reg is not None:
             print('Adding L2 regularization...')
-            cnn = self.add_l2_regularizer(cnn)
+            cnn = self.__add_l2_regularizer(cnn)
 
-        # Returns Cnn with batch normalization on input
+        # Name the cnn for weight loading in the future
+        cnn.name = 'Spatial_stream_CNN' if stream_type == 's' else 'Temporal_stream_CNN'
 
-        cnn.name = name
-        return keras.Sequential([
-            keras.layers.BatchNormalization(input_shape=input_shape),
-            cnn
-        ])
+        # Creates a time distributed CNN and return it
+        inputs = keras.layers.Input(shape=(5,) + input_shape)
+        outputs = keras.layers.TimeDistributed(cnn)(inputs)
 
-    def add_layer_regularized(self, layer, n_neurons, activation, model):
+        return inputs, outputs
+
+    def __layer_regularized(self, layer, n_neurons, activation):
         '''
         Adds a dense layer with L2 if specified
 
@@ -110,10 +116,10 @@ class TSCNN(object):
         :param activation: Activation function
         :param model: Model to add layer
         '''
-        if self.l2 is not None:
-            model.add(layer(n_neurons, activation=activation, kernel_regularizer=self.l2_reg))
+        if self.l2_reg is not None:
+            return layer(n_neurons, activation=activation, kernel_regularizer=self.l2_reg)
         else:
-            model.add(layer(n_neurons, activation=activation))
+            return layer(n_neurons, activation=activation)
 
     def add_fully_connected(self, model):
         '''
@@ -121,64 +127,64 @@ class TSCNN(object):
 
         :param model: model to add layers
         '''
-        model.add(keras.layers.Flatten())
+        fc = keras.layers.Conv3D(filters=512, kernel_size=1)(model)
+        fc = keras.layers.MaxPooling3D(pool_size=2)(fc)
+        fc = keras.layers.Flatten()(fc)
 
         # Adds FC layers excel softmax
         for i in range(0, self.fc_layers - 1):
             # Adds regularization if specified
-            self.add_layer_regularized(keras.layers.Dense, self.fc_neurons, 'relu', model)
+            fc = self.__layer_regularized(keras.layers.Dense, self.fc_neurons, 'relu')(fc)
 
             # Adds dropout if specified
             if self.dropout > 0:
-                model.add(keras.layers.Dropout(self.dropout))
+                fc = keras.layers.Dropout(self.dropout)(fc)
 
         # Adds softmax layers
-        self.add_layer_regularized(keras.layers.Dense, self.n_classes, 'softmax', model)
+        fc = self.__layer_regularized(keras.layers.Dense, self.n_classes, 'softmax')(fc)
+
+        return fc
 
     def get_model(self):
-        model = keras.Sequential()
 
+        # Loads model based on stream type
         if self.stream_type == 's':
-            model.add(self.get_cnn('s'))
+
+            imagenet = self.spatial_weights == 'imagenet'
+            inputs, outputs = self.__get_cnn('s', imagenet)
+
+            if os.path.isfile(self.spatial_weights):
+                mf.load_weights(outputs, self.spatial_weights)
+
         elif self.stream_type == 't':
-            model.add(self.get_cnn('t'))
+            inputs, outputs = self.__get_cnn('t', False)
+
+            if os.path.isfile(self.temporal_weights):
+                mf.load_weights(outputs, self.temporal_weights)
+
         else:
 
             # Checks if both streams weighs were provided
-            if self.spatial_weights is None or not os.path.isfile(self.spatial_weights) or self.temporal_weights is None or not os.path.isfile(self.temporal_weights):
-                raise Exception('both spatial and temporal weights files must be provided to train this model!')
+            #if self.spatial_weights is None or not os.path.isfile(self.spatial_weights) or self.temporal_weights is None or not os.path.isfile(self.temporal_weights):
+            #    raise Exception('both spatial and temporal weights files must be provided to train this model!')
 
-            spatial = self.get_cnn('s', 'cnn_spatial')
-            mf.load_weights(spatial, self.spatial_weights)
-            for layer in spatial.layers:
-                layer.trainable = False
+            s_inputs, s_outputs = self.__get_cnn('s', False)
+            # mf.load_weights(spatial, self.spatial_weights)
+            # for layer in spatial.layers:
+            #    layer.trainable = False
 
-            temporal = self.get_cnn('t', 'cnn_temporal')
-            mf.load_weights(temporal, self.temporal_weights)
-            for layer in temporal.layers:
-                layer.trainable = False
+            t_inputs, t_outputs = self.__get_cnn('t', False)
+            #mf.load_weights(temporal, self.temporal_weights)
+            # for layer in temporal.layers:
+            #    layer.trainable = False
 
-            combined = keras.layers.concatenate([spatial.output, temporal.output])
+            concat = keras.layers.concatenate([s_outputs, t_outputs])
+            fc = self.add_fully_connected(concat)
 
-            # fc = keras.layers.Conv3D(filters=(1, 1, 1024), kernel_size=(3, 3, 3))(combined)
-            # fc = keras.layers.GlobalMaxPooling3D()(fc)
-            fc = keras.layers.Dense(4096, activation='relu', kernel_regularizer=self.l2_reg)(combined)
-            fc = keras.layers.Dense(4096, activation='relu', kernel_regularizer=self.l2_reg)(fc)
-            fc = keras.layers.Dense(self.n_classes, activation='softmax', kernel_regularizer=self.l2_reg)(fc)
+            return keras.Model(inputs=[s_inputs, t_inputs], outputs=fc)
 
-            model = keras.Model(inputs=[spatial.input, temporal.input], outputs=fc)
-
-            return model
-
-        # Adds FC layers
-        self.add_fully_connected(model)
-
-        # loads weights if it is a file
-        if self.weights is not None and os.path.isfile(self.weights):
-            mf.load_weights(model, self.weights)
-            print('Weights loaded from %s' % self.weights)
-
-        return model
+        fc = self.add_fully_connected(outputs)
+        return keras.Model(inputs=inputs, outputs=fc)
 
 
 if __name__ == '__main__':
@@ -186,14 +192,13 @@ if __name__ == '__main__':
     model = TSCNN(
         cnn_model=CNNType.VGG16,
         stream_type='st',
-        n_classes=3,
+        n_classes=101,
         fc_layers=3,
-        fc_neuros=4096,
+        fc_neurons=4096,
+        chunks=5,
         nb_frames=10,
         dropout=.85,
         l2=1e-5,
-        callbacks=[],
-        weights=None,
         spatial_weights=r'/home/coala/mestrado/ts-cnn/chkp/joint_test_spatial_best.h5',
         temporal_weights=r'/home/coala/mestrado/ts-cnn/chkp/joint_test_temporal_best.h5'
     )
@@ -208,4 +213,3 @@ if __name__ == '__main__':
     )
 
     model.model.summary()
-

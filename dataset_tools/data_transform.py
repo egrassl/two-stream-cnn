@@ -117,6 +117,10 @@ class DataExtract(object):
 
         # Get index for each central frame of each chunk
         indexes = self.get_indexes(len(frames))
+        self.sample_count += 1
+
+        # Adds sample definitions to csv
+        self.data_frame.loc[self.sample_count] = [class_name, split, video_name[:-4], len(indexes)]
 
         count = 0
         for i in indexes:
@@ -124,8 +128,8 @@ class DataExtract(object):
             suffix = str(count).zfill(3)
 
             # Adds sample definitions to csv
-            self.data_frame.loc[self.sample_count] = [class_name, split, video_name[:-4] + '_%s' % suffix, len(indexes)]
-            self.sample_count += 1
+            # self.data_frame.loc[self.sample_count] = [class_name, split, video_name[:-4] + '_%s' % suffix, len(indexes)]
+            # self.sample_count += 1
 
             # Saves spatial frame if it doesn't exist yet
             if self.spatial:
