@@ -155,7 +155,9 @@ class DataExtract(object):
 
                     else:
                         # Get motion flow
-                        flow = vp.calculate_flow(vp.frame_resize(frames[j]), vp.frame_resize(frames[j+1]), flow_type=1)
+                        flow = vp.calculate_flow(frames[j], frames[j+1], flow_type=1)
+                        flow = vp.frame_resize(flow)
+                        flow = vp.flow_to_img(flow)
 
                         cv2.imwrite(u_file_path, flow[:, :, 0])
                         cv2.imwrite(v_file_path, flow[:, :, 1])

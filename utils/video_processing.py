@@ -20,7 +20,7 @@ def read_video(src):
     return frames
 
 
-def calculate_flow(frame1, frame2, bound=15, flow_type=1):
+def calculate_flow(frame1, frame2, flow_type=1):
     # Get motion flow
     umat1 = cv2.UMat(cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)).get()
     umat2 = cv2.UMat(cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)).get()
@@ -30,6 +30,10 @@ def calculate_flow(frame1, frame2, bound=15, flow_type=1):
     else:
         flow = TVL1.calc(umat1, umat2, None)
 
+    return flow
+
+
+def flow_to_img(flow, bound=15):
     # Transform data back to image format
     assert flow.dtype == np.float32
     flow = (flow + bound) * (255.0 / (2 * bound))
@@ -37,7 +41,6 @@ def calculate_flow(frame1, frame2, bound=15, flow_type=1):
     flow[flow >= 255] = 255
     flow[flow <= 0] = 0
     return flow
-
 
 def frame_resize(image, width=350, height=None, inter=cv2.INTER_AREA):
     # initialize the dimensions of the image to be resized and
