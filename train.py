@@ -40,7 +40,8 @@ import ts_cnn.models as ts
 import keras
 import keras_extensions.preprocess_crop
 import keras_extensions.callbacks as callbacks
-import keras_extensions.MotionFlowDataGenerator as mfg
+import keras_extensions.MotionFlowDataGenerator as mfd
+import keras_extensions.SpatialDataGenerator as mfs
 
 # ========== Training parameters ==========
 LEARNING_RATE = 1e-5 # np.power(50., -4.)
@@ -49,7 +50,7 @@ OPTIMIZER = keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 DROPOUT = .85
 L2 = 5e-4
 # N_CLASSES = len(classes)
-N_CLASSES = 3
+N_CLASSES = 101
 FC_LAYERS = 3
 FC_NEURONS = 4096
 MODEL = ts.CNNType.VGG16
@@ -86,33 +87,42 @@ else:
 train_datagen = keras.preprocessing.image.ImageDataGenerator(
         zoom_range=.3,
         horizontal_flip=True,
-        rotation_range=60,
+        rotation_range=25,
         width_shift_range=.25,
         height_shift_range=.25,
         channel_shift_range=.35,
-        brightness_range=[.3, 1.5],
+        brightness_range=[.5, 1.5],
         rescale=1.0/255.0
     )
 
 # Uses default image flow from Keras if it is a spatial stream
 if args.t == 's':
     # Train
-    train_set = train_datagen.flow_from_directory(
-        args.dataset,
-        target_size=INPUT_SIZE,
+    train_set = mfs.SpatialDataGenerator(
+        path=args.dataset,
+        split='train',
+        nb_frames=NB_FRAMES,
         batch_size=args.bs,
-        color_mode='rgb',
-        shuffle=True,
-        interpolation='lanczos:center',
-        # save_to_dir='/home/coala/mestrado/test-data'
+        input_shape=INPUT_SIZE,
+        data_augmentation=train_datagen
+    )
+
+    val_set = mfs.SpatialDataGenerator(
+        path=args.dataset,
+        split='val',
+        nb_frames=NB_FRAMES,
+        batch_size=args.bs,
+        input_shape=INPUT_SIZE,
+        # data_augmentation=train_datagen
+        # data_augmentation=image_aug
     )
 
     # Validation
-    val_datagen = keras.preprocessing.image.ImageDataGenerator(rescale=1.0 / 255.0)
-    val_set = val_datagen.flow_from_directory(args.val, target_size=INPUT_SIZE, color_mode='rgb')
+    #val_datagen = keras.preprocessing.image.ImageDataGenerator(rescale=1.0 / 255.0)
+    #val_set = val_datagen.flow_from_directory(args.val, target_size=INPUT_SIZE, color_mode='rgb')
 
 elif args.t == 't':
-    train_set = mfg.MotionFlowDataGenerator(
+    train_set = mfd.MotionFlowDataGenerator(
         path=args.dataset,
         split='train',
         nb_frames=NB_FRAMES,
@@ -121,7 +131,7 @@ elif args.t == 't':
         # data_augmentation=image_aug
     )
 
-    val_set = mfg.MotionFlowDataGenerator(
+    val_set = mfd.MotionFlowDataGenerator(
         path=args.dataset,
         split='val',
         nb_frames=NB_FRAMES,
@@ -139,12 +149,16 @@ model = ts.TSCNN(
     stream_type=args.t,
     n_classes=N_CLASSES,
     fc_layers=FC_LAYERS,
-    fc_neuros=FC_NEURONS,
+    fc_neurons=FC_NEURONS,
     nb_frames=NB_FRAMES,
     dropout=DROPOUT,
     l2=L2,
-    callbacks=callbacks,
-    weights=args.weights
+    chunks=5,
+    temporal_weights='a',
+    spatial_weights='imagenet',
+    st_weights='a'
+    #callbacks=callbacks,
+    #weights=args.weights
 )
 
 model.model.summary()

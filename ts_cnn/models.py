@@ -127,8 +127,10 @@ class TSCNN(object):
 
         :param model: model to add layers
         '''
-        fc = keras.layers.Conv3D(filters=512, kernel_size=1)(model)
-        fc = keras.layers.MaxPooling3D(pool_size=2)(fc)
+        # fc = keras.layers.Conv3D(filters=512, kernel_size=1)(model)
+        #fc = keras.layers.AvgPool3D()(fc)
+        #fc = keras.layers.Flatten()(fc)
+        fc = keras.layers.MaxPool3D(pool_size=(self.nb_chunks, self.nb_chunks, self.nb_chunks))(model)
         fc = keras.layers.Flatten()(fc)
 
         # Adds FC layers excel softmax
@@ -191,7 +193,7 @@ if __name__ == '__main__':
 
     model = TSCNN(
         cnn_model=CNNType.VGG16,
-        stream_type='st',
+        stream_type='s',
         n_classes=101,
         fc_layers=3,
         fc_neurons=4096,
@@ -199,7 +201,7 @@ if __name__ == '__main__':
         nb_frames=10,
         dropout=.85,
         l2=1e-5,
-        spatial_weights=r'/home/coala/mestrado/ts-cnn/chkp/joint_test_spatial_best.h5',
+        spatial_weights=r'imagenet',
         temporal_weights=r'/home/coala/mestrado/ts-cnn/chkp/joint_test_temporal_best.h5'
     )
 

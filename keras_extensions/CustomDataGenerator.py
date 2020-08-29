@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import glob
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class CustomDataGenerator(keras.utils.Sequence):
@@ -44,7 +45,7 @@ class CustomDataGenerator(keras.utils.Sequence):
         '''
 
         # Finds how many classes folders there are in the train dataset
-        u_path = os.path.join(self.path, 'train', 'temporal', 'u', '*')
+        u_path = os.path.join(self.path, 'train', 'spatial', '*')
         classes = glob.glob(os.path.join(u_path))
         classes = [os.path.split(c)[1] for c in classes]
         classes.sort()
@@ -94,7 +95,8 @@ class CustomDataGenerator(keras.utils.Sequence):
         v_path = os.path.join(self.path, split, 'temporal', 'v', class_name)
 
         # Create stacked flow image
-        shape = (chunks,) + self.input_shape + (2 * self.nb_frames,)
+        # shape = (chunks,) + self.input_shape + (2 * self.nb_frames,)
+        shape = (chunks,) + self.input_shape + (3,)
         images = np.empty(shape)
         transform = self.data_augmentation.get_random_transform(self.input_shape) if self.data_augmentation is not None else None
 
@@ -102,7 +104,33 @@ class CustomDataGenerator(keras.utils.Sequence):
             sample_name = video_name + '_%s' % str(i).zfill(3)
             images[i] = self.get_data(s_path, u_path, v_path, sample_name, transform)
 
+
+        #for image in images:
+        #    plt.imshow(image)
+        #    plt.show()
+
+        # self.__plot_sample(images)
+
         return images, self.classes.index(class_name)
+
+    def __plot_sample(self, sample):
+
+        num_chunks = sample.shape[0]
+
+        fig, axs = plt.subplots(1, num_chunks)
+
+        count = 0
+        for i in range(0, num_chunks):
+            axs[i].imshow(sample[i])
+            count += 1
+            # print(sample)
+
+        # print()
+        if count != 5:
+            raise Exception()
+
+        plt.show()
+        # plt.waitforbuttonpress()
 
     def get_data(self, s_path, u_path, v_path, sample_name, transform):
 

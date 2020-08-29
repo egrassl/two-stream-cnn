@@ -6,37 +6,15 @@ from skimage.transform import resize
 from keras_extensions import CustomDataGenerator
 
 
-class MotionFlowDataGenerator(CustomDataGenerator.CustomDataGenerator):
+class SpatialDataGenerator(CustomDataGenerator.CustomDataGenerator):
 
-    def __load_flow(self, img_path, transform):
-        img = imread(img_path)
+    def get_data(self, s_path, u_path, v_path, sample_name, transform):
+        s_path = os.path.join(s_path, sample_name + '.jpg')
+        img = imread(s_path)
         img = keras.preprocessing.image.img_to_array(img)
         img = self.data_augmentation.apply_transform(img, transform) if transform is not None else img
         img = resize(img, self.input_shape)
-        return img * (1.0/255.0)
-
-    def get_data(self, s_path, u_path, v_path, sample_name, transform):
-        # Create stacked flow image
-        image = np.empty(self.input_shape + (2 * self.nb_frames,))
-        channel_count = 0
-        for i in range(0, self.nb_frames):
-            u_img = None
-            v_img = None
-
-            # Get horizontal and vertical frames
-            u_img_path = os.path.join(u_path, sample_name + '_u%s.jpg' % str(i).zfill(3))
-            u_img = self.__load_flow(u_img_path, transform)
-
-            v_img_path = os.path.join(v_path, sample_name + '_v%s.jpg' % str(i).zfill(3))
-            v_img = self.__load_flow(v_img_path, transform)
-
-            # Stack frames
-            image[:, :, channel_count] = u_img[:, :, 0]
-            channel_count += 1
-            image[:, :, channel_count] = v_img[:, :, 0]
-            channel_count += 1
-
-        return image
+        return img * (1.0 / 255.0)
 
 
 if __name__ == '__main__':
@@ -45,15 +23,15 @@ if __name__ == '__main__':
     image_aug = keras.preprocessing.image.ImageDataGenerator(
         zoom_range=.3,
         horizontal_flip=True,
-        rotation_range=60,
+        rotation_range=25,
         width_shift_range=.25,
         height_shift_range=.25,
         channel_shift_range=.35,
-        brightness_range=[.3, 1.5]
+        brightness_range=[.5, 1.5]
     )
 
-    generator = MotionFlowDataGenerator(
-        path=r'/home/coala/mestrado/datasets/UCF101/',
+    generator = SpatialDataGenerator(
+        path=r'/home/coala/mestrado/datasets/UCF003/',
         split='train',
         nb_frames=10,
         batch_size=4,
@@ -61,8 +39,8 @@ if __name__ == '__main__':
         data_augmentation=image_aug
     )
 
-    val_generator = MotionFlowDataGenerator(
-        path=r'/home/coala/mestrado/datasets/UCF101/',
+    val_generator = SpatialDataGenerator(
+        path=r'/home/coala/mestrado/datasets/UCF003/',
         split='val',
         nb_frames=10,
         batch_size=4,
@@ -72,13 +50,15 @@ if __name__ == '__main__':
 
     # test model
     model = keras.Sequential()
-    model.add(keras.applications.VGG16(include_top=False, input_shape=(224, 224, 20), weights=None))
-    td = keras.layers.TimeDistributed(input_shape=(5, 224, 224, 20), layer=model)
+    model.add(keras.applications.VGG16(include_top=False, input_shape=(224, 224, 3), weights='imagenet'))
+    td = keras.layers.TimeDistributed(input_shape=(5, 224, 224, 3), layer=model)
     model = keras.Sequential()
     model.add(td)
     # model.add(keras.layers.Conv3D(filters=256, kernel_size=(2, 2, 2), strides=2))
-    model.add(keras.layers.MaxPool3D())
+    model.add(keras.layers.MaxPool3D(pool_size=(5, 5, 5)))
+    # model.add(keras.layers.GlobalAvgPool3D())
     model.add(keras.layers.Flatten())
+
     model.add(keras.layers.Dropout(.5))
     model.add(keras.layers.Dense(4096, activation='relu', name='fc1'))
     model.add(keras.layers.Dropout(.5))
@@ -88,7 +68,7 @@ if __name__ == '__main__':
 
     model.summary()
 
-    OPTIMIZER = keras.optimizers.SGD(learning_rate=1e-3)
+    OPTIMIZER = keras.optimizers.Adam(learning_rate=1e-5)
 
     model.compile(
         OPTIMIZER,
@@ -101,7 +81,6 @@ if __name__ == '__main__':
         validation_data=val_generator,
         verbose=1,
         epochs=100,
-        use_multiprocessing=True,
-        workers=8
-        # max_queue_size=20
+        #use_multiprocessing=True,
+        #workers=8
     )

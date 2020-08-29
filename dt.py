@@ -1,6 +1,7 @@
 import argparse
 import dataset_tools.data_transform as dt
 import dataset_tools.ntu_definitions as ntu
+import dataset_tools.ucf_definitions as ucf
 import random
 
 parser = argparse.ArgumentParser()
@@ -25,7 +26,7 @@ if args.mode == 'ntu-cs':
 elif args.mode == 'ntu-cv':
     split_func = ntu.get_cv_split
 else:
-    split_func = lambda x: 'train' if random.uniform(0, 1) <= .7 else 'val'
+    split_func = ucf.UcfDefinitions().get_split
 
 extractor = dt.DataExtract(src=args.src,
                            dst=args.dst,

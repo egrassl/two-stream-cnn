@@ -61,7 +61,7 @@ class DataExtract(object):
             if self.temporal:
                 fm.create_dirs([u_dst, v_dst], self.verbose)
 
-    def get_indexes(self, n_frames, offset=.2):
+    def get_indexes(self, n_frames, offset=.0):
         '''
         Gets the T distributed indexes over the video frames. It returns less indexes if could not get self.chunks indexes
 
@@ -76,7 +76,8 @@ class DataExtract(object):
         i = 0
         indexes = [n]
         while indexes[-1] + self.nb_range >= n:
-            step = float((n - 1) / (self.chunks + 1 - i))
+            step = float((n - (1 + i)) / (self.chunks + 1))
+            # print(step)
             indexes = [round(step * i) for i in range(1, self.chunks + 1 - i)]
             i += 1
 
@@ -117,6 +118,10 @@ class DataExtract(object):
 
         # Get index for each central frame of each chunk
         indexes = self.get_indexes(len(frames))
+
+        if len(indexes) != self.chunks:
+            raise Exception('Invalid chunk quantity %d' % len(indexes))
+
         self.sample_count += 1
 
         # Adds sample definitions to csv
@@ -159,9 +164,9 @@ class DataExtract(object):
 
                     else:
                         # Get motion flow
-                        flow = vp.calculate_flow(frames[j], frames[j+1], flow_type=1)
-                        flow = vp.frame_resize(flow)
-                        flow = vp.flow_to_img(flow)
+                        flow = vp.calculate_flow(vp.frame_resize(frames[j]), vp.frame_resize(frames[j+1]), flow_type=1)
+                        # flow = vp.frame_resize(flow)
+                        # flow = vp.flow_to_img(flow)
 
                         cv2.imwrite(u_file_path, flow[:, :, 0])
                         cv2.imwrite(v_file_path, flow[:, :, 1])
